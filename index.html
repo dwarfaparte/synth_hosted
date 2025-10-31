@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>Untitled Synth</title> 
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+	
+	<link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+		<style>
+			/* Remove all margin and overflow */
+			body {
+				margin: 0;
+				overflow: hidden;
+			}
+			/* Canvas should fill the screen */
+			canvas {
+				display: block;
+			}
+
+			/* --- Tooltip CSS --- */
+			#description-display {
+				position: fixed; /* Sticks to the viewport */
+				top: 20px;
+				right: 20px;
+				width: 350px; /* Or any width you prefer */
+				padding: 30px 30px;
+				background-color: rgba(0, 0, 0, 0.75);
+				color: #48f9ffff;
+				border: 1px solid #48f9ffff;
+				border-radius: 4px;
+				font-family: Arial, sans-serif;
+				font-size: 34px;
+				pointer-events: none; 
+				z-index: 100;
+				
+				/* --- NEW LINES FOR "POP" EFFECT --- */
+				transform: scale(1);
+				transition: transform 0.2s ease-out;
+			}
+			#start-overlay {
+				position: absolute;
+				top: 0;
+				left: 0;
+				width: 100vw;
+				height: 100vh;
+				background-color: rgba(0, 0, 0, 0.9);
+				display: flex;
+				justify-content: center;
+				align-items: center;
+				z-index: 1000;
+				color: white;
+			}
+
+			#start-button {
+				padding: 15px 30px;
+				font-size: 1.5em;
+				font-family: Arial, sans-serif;
+				color: white;
+				background-color: #333;
+				border: 2px solid #48f9ffff;
+				border-radius: 8px;
+				cursor: pointer;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="fade-overlay"></div> <script>
+
+			const APP_VERSION = "1.13"; // <-- Change this value in one place
+		</script>
+
+		<div id="description-display">Hover over an element for details.</div>
+		<div id="gui-display-host"></div>
+		<div id="start-overlay">
+			
+			<button id="start-button">
+				<script>document.write(`Version ${APP_VERSION}`);</script>
+			</button>
+
+		</div>
+		<script type="importmap">
+			{
+				"imports": {
+					"three": "https://cdn.jsdelivr.net/npm/three@0.160/build/three.module.js",
+					"three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160/examples/jsm/"
+				}
+			}
+		</script>
+
+		<script>
+			document.write(`<script type="module" src="main.js?v=${APP_VERSION}"><\/script>`);
+		</script>
+
+	</body>
+</html>
