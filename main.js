@@ -282,8 +282,8 @@ loader.load(
         modelToFadeIn = gltf.scene;
         modelToFadeIn.rotation.x = DEFAULT_ROTATION_X;
         modelToFadeIn.rotation.y = THREE.MathUtils.degToRad(45);
-        modelToFadeIn.position.x = -5;
-        modelToFadeIn.position.y = -5;
+        modelToFadeIn.position.x = 0;
+        modelToFadeIn.position.y = 0;
 
         // --- 2. AWAIT YOUR DISPLAY DATA ---
         await displayDataPromise; 
@@ -602,14 +602,14 @@ function checkIntersections(isClick = false) {
                  // Check if the button has multiple materials
                 child.material.forEach(mat => {
                     console.log('Material name:', mat.name);
-                    if (mat.name === 'redLED') redLEDMaterial = mat;
-                    if (mat.name === 'greenLED') greenLEDMaterial = mat;
+                    if (mat.name.includes('redLED')) redLEDMaterial = mat;
+                    if (mat.name.includes('greenLED')) greenLEDMaterial = mat;
                 });
             } else if (child.isMesh && child.material) {
                 // Check if the button has a single material
                 console.log('Material name:', child.material.name);
-                if (child.material.name === 'redLED') redLEDMaterial = child.material;
-                if (child.material.name === 'greenLED') greenLEDMaterial = child.material;
+                if (child.material.name.includes('redLED')) redLEDMaterial = child.material;
+                if (child.material.name.includes('greenLED')) greenLEDMaterial = child.material;
             }
         });
 
