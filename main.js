@@ -311,12 +311,13 @@ loader.load(
                 } 
                 // --- End of Block 1 ---
 
-                // --- BLOCK 2: NEW - Add lights to ALL emissive materials ---
+                // --- - Add lights to ALL emissive materials ---
                 // This helper function checks a material and adds a light if needed
+                let addLights = false; // <-- Set to false to disable emissive lights
+                if (!addLights) return; // Skip if disabled
                 const addLightIfEmissive = (material) => {
                     // Check if material is emissive (color is not black AND intensity > 0)
                     if (material.emissive && material.emissiveIntensity > 0 && material.emissive.getHex() !== 0) {
-                        
                         // --- Create the PointLight ---
                         const light = new THREE.PointLight(
                             material.emissive.clone(),    // Use the material's emissive color
@@ -535,6 +536,11 @@ function checkIntersections(isClick = false) {
                     || objectToCheck.name === 'Display02' 
                     || objectToCheck.name.includes('Soft')) {
                     hoveredInteractive = objectToCheck; // Found an object
+                    console.log('Hovered object name:', objectToCheck.name);
+                    const worldPos = new THREE.Vector3();
+                    hoveredInteractive.getWorldPosition(worldPos);
+                    hoveredInteractive.updateMatrixWorld(true)
+                    console.log(`${hoveredInteractive.name} world position: x=${worldPos.x.toFixed(3)}, y=${worldPos.y.toFixed(3)}, z=${worldPos.z.toFixed(3)}`, worldPos);
                     break;
                 }
             }
@@ -542,33 +548,42 @@ function checkIntersections(isClick = false) {
         }
     }
 
-    if (isClick && hoveredInteractive && (hoveredInteractive.name === 'Display01' || hoveredInteractive.name === 'Display02')) {
+    if (isClick && hoveredInteractive && (hoveredInteractive.name === 'Display01' 
+        || hoveredInteractive.name === 'Display02')) {
         isCameraFocused = true;
         isCameraTransitioning = true;
         
         // --- Dynamic, Rotation-Aware Position Calculation ---
         
-        // 1. Get the world position of the display (this is our lookAt target)
-        hoveredInteractive.getWorldPosition(targetLookAt);
+        const knobName = "Knob10"; 
+        const knob10 = scene.getObjectByName(knobName);
+
+        if (knob10) {
+            knob10.getWorldPosition(targetLookAt);
+            console.log("Camera target set to Knob 10's position:", targetLookAt);
+        } else {
+            console.warn(`Knob with name "${knobName}" not found in the scene.`);
+            // Optionally, fall back to a default target or the hoveredInteractive
+            // hoveredInteractive.getWorldPosition(targetLookAt);
+        }
         
         // 2. Get the display's local axes in world space.
         const displayUp = new THREE.Vector3();
         const displayNormal = new THREE.Vector3(); // This is the vector pointing OUT of the screen
         
         // Make sure the object's matrix is updated
-        hoveredInteractive.updateWorldMatrix(true, false); 
+        knob10.updateWorldMatrix(true, false); 
         
-        displayNormal.setFromMatrixColumn(hoveredInteractive.matrixWorld, 1); 
-        displayUp.setFromMatrixColumn(hoveredInteractive.matrixWorld, 2);
+        displayNormal.setFromMatrixColumn(knob10.matrixWorld, 1); 
+        displayUp.setFromMatrixColumn(knob10.matrixWorld, 2);
         displayUp.negate();
 
         // 3. Set the target camera "up" vector. This fixes the Z-axis roll.
-        targetCameraUp.copy(displayUp).normalize();
+        //targetCameraUp.copy(knob10).normalize();
 
         // 4. Set the target camera position.
         displayNormal.multiplyScalar(8); 
-        targetCameraPosition.copy(targetLookAt).add(displayNormal);
-        // --- END MODIFIED ---
+        targetCameraPosition.copy(knob10).add(displayNormal);
         
         // Hide any GUI that might be open
         // REMOVED: hideGuiDisplayCanvas();
@@ -581,6 +596,55 @@ function checkIntersections(isClick = false) {
         return; // Stop processing, we've handled the click
     }
     // --- SOFT BUTTON CLICK LOGIC ---
+
+/**
+ * Sets the LED brightness for a list of soft buttons by name.
+ * @param {string[]} buttonNames - An array of button names (e.g., ['Soft01', 'Soft02']).
+ * @param {number} greenIntensity - The desired emissive intensity for the green LED.
+ * @param {number} redIntensity - The desired emissive intensity for the red LED.
+ */
+function setButtonLEDs(buttonNames, greenIntensity, redIntensity) {
+    if (!modelToFadeIn) return; // Make sure the model is loaded
+
+    for (const buttonName of buttonNames) {
+        // Find the button object in the scene
+        const buttonObject = scene.getObjectByName(buttonName);
+
+        if (!buttonObject) {
+            console.warn(`setButtonLEDs: Button "${buttonName}" not found.`);
+            continue; // Skip to the next button name
+        }
+
+        let redLEDMaterial = null;
+        let greenLEDMaterial = null;
+
+        // Find the LED materials (using the same logic as your onMouseClick handler)
+        buttonObject.traverse((child) => {
+            if (child.isMesh) {
+                // This handles both single and multi-material meshes
+                const materials = Array.isArray(child.material) ? child.material : [child.material];
+                
+                materials.forEach(mat => {
+                    if (mat.name.includes('redLED')) redLEDMaterial = mat;
+                    if (mat.name.includes('greenLED')) greenLEDMaterial = mat;
+                });
+            }
+        });
+
+        // Set the new intensities
+        if (redLEDMaterial && greenLEDMaterial) {
+            redLEDMaterial.emissiveIntensity = redIntensity;
+            greenLEDMaterial.emissiveIntensity = greenIntensity;
+
+            // IMPORTANT: Tell Three.js to update the materials
+            redLEDMaterial.needsUpdate = true;
+            greenLEDMaterial.needsUpdate = true;
+        } else {
+            console.warn(`setButtonLEDs: Could not find LED materials for button: ${buttonName}`);
+        }
+    }
+}
+
     if (isClick && hoveredInteractive && hoveredInteractive.name.includes('Soft')) {
         const buttonName = hoveredInteractive.name;
         
@@ -593,51 +657,27 @@ function checkIntersections(isClick = false) {
         
         console.log(`${buttonName} clicked. New state: ${currentState}`);
         
-        let redLEDMaterial = null;
-        let greenLEDMaterial = null;
-
-        // 3. Traverse the button's children to find the LED materials
-        hoveredInteractive.traverse((child) => {
-            if (child.isMesh && Array.isArray(child.material)) {
-                 // Check if the button has multiple materials
-                child.material.forEach(mat => {
-                    console.log('Material name:', mat.name);
-                    if (mat.name.includes('redLED')) redLEDMaterial = mat;
-                    if (mat.name.includes('greenLED')) greenLEDMaterial = mat;
-                });
-            } else if (child.isMesh && child.material) {
-                // Check if the button has a single material
-                console.log('Material name:', child.material.name);
-                if (child.material.name.includes('redLED')) redLEDMaterial = child.material;
-                if (child.material.name.includes('greenLED')) greenLEDMaterial = child.material;
-            }
-        });
-
         // 4. Apply the new emission intensity based on the state
-        if (redLEDMaterial && greenLEDMaterial) {
+            setButtonLEDs(['Soft05','Soft06','Soft07','Soft08'], 0, 0)
             switch (currentState) {
                 case 0:
                     // State 1: Both dim (0.2)
-                    redLEDMaterial.emissiveIntensity = 0.2;
-                    greenLEDMaterial.emissiveIntensity = 0.2;
+                    setButtonLEDs([buttonName], 0, 0)
                     break;
                 case 1:
-                    // State 2: Red bright (1.4), Green dim (0.2)
-                    redLEDMaterial.emissiveIntensity = 5;
-                    greenLEDMaterial.emissiveIntensity = 0.2;
+                    // State 2: Red bright (5), Green dim (0.2)
+                    setButtonLEDs([buttonName], 0, 5)
                     break;
                 case 2:
-                    // State 3: Green bright (1.4), Red dim (0.2)
-                    redLEDMaterial.emissiveIntensity = 0.2;
-                    greenLEDMaterial.emissiveIntensity = 5;
+                    // State 3: Green bright (5), Red dim (0.2)
+                    setButtonLEDs([buttonName], 5, 0)
                     break;
             }
             // Ensure Three.js knows the materials need to be rendered with the new intensity
             redLEDMaterial.needsUpdate = true;
             greenLEDMaterial.needsUpdate = true;
-        } else {
-             console.warn(`Could not find redLED and/or greenLED material for button: ${buttonName}`);
-        }
+
+        
         
         // Clear hover/selection effect immediately after click
         selectedObject = null;
@@ -685,7 +725,6 @@ function checkIntersections(isClick = false) {
     }
 }
 
-// --- REMOVED: GUI DISPLAY CANVAS HELPER FUNCTIONS ---
 // 7. Animation Loop (Render the Scene)
 function animate() {
     requestAnimationFrame(animate);
