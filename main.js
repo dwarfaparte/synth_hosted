@@ -24,15 +24,64 @@ const previousMousePosition = {
 
 // --- DISPLAY & DATA VARIABLES ---
 let descriptionDisplayElement; 
+let debugDisplayElement; 
 let currentDescriptionText = ""; 
 let knobDescriptions = new Map();
 let softButtonStates = new Map(); // Key: Object Name (e.g., 'soft1'), Value: State (0, 1, or 2)
+
+
 
 // --- DISPLAY TEXT LOADING ---
 let displayData = new Map();
 let displayDataPromise; // To await this in the loader
 
-// --- REMOVED: GUI DISPLAY CANVAS VARIABLES ---
+/**
+         * Sets the LED brightness for a list of soft buttons by name.
+         * @param {string[]} buttonNames - An array of button names (e.g., ['Soft01', 'Soft02']).
+         * @param {number} greenIntensity - The desired emissive intensity for the green LED.
+         * @param {number} redIntensity - The desired emissive intensity for the red LED.
+         */
+        function setButtonLEDs(buttonNames, greenIntensity, redIntensity) {
+            if (!modelToFadeIn) return; // Make sure the model is loaded
+
+            for (const buttonName of buttonNames) {
+                // Find the button object in the scene
+                const buttonObject = scene.getObjectByName(buttonName);
+
+                if (!buttonObject) {
+                    console.warn(`setButtonLEDs: Button "${buttonName}" not found.`);
+                    continue; // Skip to the next button name
+                }
+
+                let redLEDMaterial = null;
+                let greenLEDMaterial = null;
+
+                // Find the LED materials (using the same logic as your onMouseClick handler)
+                buttonObject.traverse((child) => {
+                    if (child.isMesh) {
+                        // This handles both single and multi-material meshes
+                        const materials = Array.isArray(child.material) ? child.material : [child.material];
+                        
+                        materials.forEach(mat => {
+                            if (mat.name.includes('redLED')) redLEDMaterial = mat;
+                            if (mat.name.includes('greenLED')) greenLEDMaterial = mat;
+                        });
+                    }
+                });
+
+                // Set the new intensities
+                if (redLEDMaterial && greenLEDMaterial) {
+                    redLEDMaterial.emissiveIntensity = redIntensity;
+                    greenLEDMaterial.emissiveIntensity = greenIntensity;
+
+                    // IMPORTANT: Tell Three.js to update the materials
+                    redLEDMaterial.needsUpdate = true;
+                    greenLEDMaterial.needsUpdate = true;
+                } else {
+                    console.warn(`setButtonLEDs: Could not find LED materials for button: ${buttonName}`);
+                }
+            }
+        }
 
 // --- CSV DATA LOADING (Only for Knobs) ---
 async function loadKnobData() {
@@ -272,7 +321,6 @@ const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
 directionalLight.position.set(5, 100, 20.5);
 scene.add(directionalLight);
 
-
 // 3. Load the Model
 const loader = new GLTFLoader();
 
@@ -346,6 +394,12 @@ loader.load(
         });
 
         scene.add(modelToFadeIn);
+
+        // Set softknob intial states
+        
+        setButtonLEDs(['Soft05','Soft06','Soft07','Soft08'], 0, 0);
+        setButtonLEDs(['Soft05'], 5, 0);
+
         //isFadingIn = true; // Waits for start button
         console.log('Model loaded, starting fade-in and curved zoom-in!');
     },
@@ -538,8 +592,8 @@ function checkIntersections(isClick = false) {
                     hoveredInteractive = objectToCheck; // Found an object
                     console.log('Hovered object name:', objectToCheck.name);
                     const worldPos = new THREE.Vector3();
-                    hoveredInteractive.getWorldPosition(worldPos);
                     hoveredInteractive.updateMatrixWorld(true)
+                    hoveredInteractive.getWorldPosition(worldPos);
                     console.log(`${hoveredInteractive.name} world position: x=${worldPos.x.toFixed(3)}, y=${worldPos.y.toFixed(3)}, z=${worldPos.z.toFixed(3)}`, worldPos);
                     break;
                 }
@@ -553,97 +607,33 @@ function checkIntersections(isClick = false) {
         isCameraFocused = true;
         isCameraTransitioning = true;
         
-        // --- Dynamic, Rotation-Aware Position Calculation ---
-        
-        const knobName = "Knob10"; 
-        const knob10 = scene.getObjectByName(knobName);
-
-        if (knob10) {
-            knob10.getWorldPosition(targetLookAt);
-            console.log("Camera target set to Knob 10's position:", targetLookAt);
-        } else {
-            console.warn(`Knob with name "${knobName}" not found in the scene.`);
-            // Optionally, fall back to a default target or the hoveredInteractive
-            // hoveredInteractive.getWorldPosition(targetLookAt);
+        // --- 1. Get the Knob10 object ---
+        const targetObject = scene.getObjectByName("Knob10");
+        if (!targetObject) {
+            console.error("Could not find 'Knob10' to focus on!");
+            isCameraFocused = false;
+            isCameraTransitioning = false;
+            return;
         }
-        
-        // 2. Get the display's local axes in world space.
-        const displayUp = new THREE.Vector3();
-        const displayNormal = new THREE.Vector3(); // This is the vector pointing OUT of the screen
-        
-        // Make sure the object's matrix is updated
-        knob10.updateWorldMatrix(true, false); 
-        
-        displayNormal.setFromMatrixColumn(knob10.matrixWorld, 1); 
-        displayUp.setFromMatrixColumn(knob10.matrixWorld, 2);
-        displayUp.negate();
 
-        // 3. Set the target camera "up" vector. This fixes the Z-axis roll.
-        //targetCameraUp.copy(knob10).normalize();
-
-        // 4. Set the target camera position.
-        displayNormal.multiplyScalar(8); 
-        targetCameraPosition.copy(knob10).add(displayNormal);
+        // Calculate target camera position slightly in front of the display
+        const displayWorldPos = new THREE.Vector3();
+        targetObject.updateMatrixWorld(true);
+        targetObject.getWorldPosition(displayWorldPos);
+        const displayNormal = new THREE.Vector3(0, 1, 0);
+        displayNormal.applyQuaternion(targetObject.getWorldQuaternion(new THREE.Quaternion()));
+        const offsetDistance = 20;
+        targetCameraPosition.copy(displayWorldPos).addScaledVector(displayNormal, offsetDistance);
         
-        // Hide any GUI that might be open
-        // REMOVED: hideGuiDisplayCanvas();
-        if (descriptionDisplayElement) descriptionDisplayElement.style.display = 'none';
-        currentDescriptionText = "";
-        
-        // Deselect object so outline goes away
-        selectedObject = null;
-        outlinePass.selectedObjects = [];
-        return; // Stop processing, we've handled the click
+        // Look directly at the center of the display
+        targetLookAt.copy(displayWorldPos); 
+        // Set camera "up" vector to match display's up direction
+        const displayUp = new THREE.Vector3(0, 1, 0);
+        displayUp.applyQuaternion(targetObject.getWorldQuaternion(new THREE.Quaternion()));
+        targetCameraUp.copy(displayUp);
+        return; // Stop processing, we've handled the display click
     }
-    // --- SOFT BUTTON CLICK LOGIC ---
-
-/**
- * Sets the LED brightness for a list of soft buttons by name.
- * @param {string[]} buttonNames - An array of button names (e.g., ['Soft01', 'Soft02']).
- * @param {number} greenIntensity - The desired emissive intensity for the green LED.
- * @param {number} redIntensity - The desired emissive intensity for the red LED.
- */
-function setButtonLEDs(buttonNames, greenIntensity, redIntensity) {
-    if (!modelToFadeIn) return; // Make sure the model is loaded
-
-    for (const buttonName of buttonNames) {
-        // Find the button object in the scene
-        const buttonObject = scene.getObjectByName(buttonName);
-
-        if (!buttonObject) {
-            console.warn(`setButtonLEDs: Button "${buttonName}" not found.`);
-            continue; // Skip to the next button name
-        }
-
-        let redLEDMaterial = null;
-        let greenLEDMaterial = null;
-
-        // Find the LED materials (using the same logic as your onMouseClick handler)
-        buttonObject.traverse((child) => {
-            if (child.isMesh) {
-                // This handles both single and multi-material meshes
-                const materials = Array.isArray(child.material) ? child.material : [child.material];
-                
-                materials.forEach(mat => {
-                    if (mat.name.includes('redLED')) redLEDMaterial = mat;
-                    if (mat.name.includes('greenLED')) greenLEDMaterial = mat;
-                });
-            }
-        });
-
-        // Set the new intensities
-        if (redLEDMaterial && greenLEDMaterial) {
-            redLEDMaterial.emissiveIntensity = redIntensity;
-            greenLEDMaterial.emissiveIntensity = greenIntensity;
-
-            // IMPORTANT: Tell Three.js to update the materials
-            redLEDMaterial.needsUpdate = true;
-            greenLEDMaterial.needsUpdate = true;
-        } else {
-            console.warn(`setButtonLEDs: Could not find LED materials for button: ${buttonName}`);
-        }
-    }
-}
+    // --- SOFT BUTTON CLICK LOGIC --
 
     if (isClick && hoveredInteractive && hoveredInteractive.name.includes('Soft')) {
         const buttonName = hoveredInteractive.name;
@@ -651,8 +641,8 @@ function setButtonLEDs(buttonNames, greenIntensity, redIntensity) {
         // 1. Get the current state (default to 0 if new)
         let currentState = softButtonStates.get(buttonName) || 0;
 
-        // 2. Cycle the state (0 -> 1 -> 2 -> 0)
-        currentState = (currentState + 1) % 3; 
+        // 2. Cycle the state (0 -> 1 -> 0)
+        currentState = (currentState + 1) % 2;
         softButtonStates.set(buttonName, currentState);
         
         console.log(`${buttonName} clicked. New state: ${currentState}`);
@@ -661,14 +651,10 @@ function setButtonLEDs(buttonNames, greenIntensity, redIntensity) {
             setButtonLEDs(['Soft05','Soft06','Soft07','Soft08'], 0, 0)
             switch (currentState) {
                 case 0:
-                    // State 1: Both dim (0.2)
-                    setButtonLEDs([buttonName], 0, 0)
-                    break;
-                case 1:
                     // State 2: Red bright (5), Green dim (0.2)
                     setButtonLEDs([buttonName], 0, 5)
                     break;
-                case 2:
+                case 1:
                     // State 3: Green bright (5), Red dim (0.2)
                     setButtonLEDs([buttonName], 5, 0)
                     break;
@@ -734,9 +720,12 @@ function animate() {
     const pulseFactor = Math.sin(elapsedTime * PULSE_SPEED) * 0.5 + 0.5; 
     const newIntensity = PULSE_MIN_INTENSITY + (PULSE_MAX_INTENSITY - PULSE_MIN_INTENSITY) * pulseFactor;
     ambientLight.intensity = newIntensity;
-    // --- END PULSE LOGIC ---
 
-    // --- MODIFIED: INTRO ZOOM & BOBBING LOGIC ---
+    // --- BLINK LOGIC ---
+    const isBlinkOn = (Math.floor(elapsedTime * 2) % 2 === 0);
+
+
+    // ---  INTRO ZOOM ---
     if (isFadingIn && modelToFadeIn) {
         
         // CURVED ZOOM-IN (Intro anim)
@@ -775,10 +764,6 @@ if (!isDragging && modelToFadeIn && rotationVelocityY !== 0) {
         // If we are very close, stop the transition
         if (distanceToTarget < 0.01) {
             isCameraTransitioning = false;
-            // Optional: Snap to final position to be precise
-            camera.position.copy(targetCameraPosition);
-            lerpedLookAt.copy(targetLookAt);
-            lerpedCameraUp.copy(targetCameraUp);
         }
     }
 
@@ -809,7 +794,22 @@ if (!isDragging && modelToFadeIn && rotationVelocityY !== 0) {
 
     // --- Call Raycasting Logic ---
     if (modelToFadeIn) {
-        checkIntersections(false); // <-- MODIFIED: Pass false for hover check
+        checkIntersections(false); 
+        if (debugDisplayElement) {
+            const rotation = modelToFadeIn.rotation;
+            
+            // Convert radians to degrees and format to 2 decimal places
+            const rotX = THREE.MathUtils.radToDeg(rotation.x).toFixed(2);
+            const rotY = THREE.MathUtils.radToDeg(rotation.y).toFixed(2);
+            const rotZ = THREE.MathUtils.radToDeg(rotation.z).toFixed(2);
+
+            // Use \n (newline) for textContent, or <br> for innerHTML
+            // Using 'white-space: pre' in the CSS makes \n work well.
+            debugDisplayElement.textContent = `Model Rotation:
+            X: ${rotX}°
+            Y: ${rotY}°
+            Z: ${rotZ}°`;
+        }
     }
 
     // Render via the EffectComposer
@@ -818,6 +818,7 @@ if (!isDragging && modelToFadeIn && rotationVelocityY !== 0) {
 
 // --- Get Display Element from DOM ---
 descriptionDisplayElement = document.getElementById('description-display');
+debugDisplayElement = document.getElementById('debug-display');
 
 // --- Fullscreen & Landscape Lock Logic ---
 const startOverlay = document.getElementById('start-overlay');

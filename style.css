@@ -45,3 +45,17 @@
     opacity: 1; /* Start fully opaque */
     transition: opacity 3.5s ease-out; /* Fade-out speed */
 }
+
+#debug-display {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    padding: 8px;
+    font-family: monospace;
+    font-size: 14px;
+    z-index: 100; /* Make sure it's on top */
+    /* Use 'pre' to respect line breaks from JS */
+    white-space: pre; 
+}
