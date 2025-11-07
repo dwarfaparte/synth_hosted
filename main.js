@@ -1,19 +1,23 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-// --- REMOVED: MapControls import ---
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { FilmPass } from 'three/addons/postprocessing/FilmPass.js';
 import { OutlinePass } from 'three/addons/postprocessing/OutlinePass.js';
 
-// --- RAYCASTING & OUTLINE VARIABLES ---
+//  RAYCASTING & OUTLINE VARIABLES 
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 let selectedObject = null; // <-- RENAMED
 let outlinePass;
 let hoveredInteractive = null;
 
-// --- DRAG & ROTATION VARIABLES ---
+// Button Groups
+const b_group1 = ['B_Soft01','B_Soft02','B_Soft03','B_Soft04'];
+const b_group2 = ['B_Soft05','B_Soft06','B_Soft07','B_Soft08'];    
+const b_group3 = ['B_TimeMod', 'B_Gate', 'B_Accent', 'B_Glide', 'B_Octave', 'B_NoteSynth'];
+
+//  DRAG & ROTATION VARIABLES 
 let isDragging = false;
 const previousMousePosition = {
     x: 0,
@@ -30,17 +34,12 @@ let currentDescriptionText = "";
 let knobDescriptions = new Map();
 let softButtonStates = new Map(); // Key: Object Name (e.g., 'soft1'), Value: State (0, 1, or 2)
 
-
-
 // --- DISPLAY TEXT LOADING ---
 let displayData = new Map();
 let displayDataPromise; // To await this in the loader
 
 function resetButtonLEDs(targetButton) {
-    const group1 = ['B_Soft01','B_Soft02','B_Soft03','B_Soft04'];
-    const group2 = ['B_Soft05','B_Soft06','B_Soft07','B_Soft08'];    
-    const group3 = ['B_TimeMod', 'B_Gate', 'B_Accent', 'B_Glide', 'B_Octave', 'B_NoteSynth'];
-    const grouplist = [group1, group2, group3];
+    const grouplist = [b_group1, b_group2, b_group3];
 
     // Find targetButton in groups
     for (const group of grouplist) {
