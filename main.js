@@ -122,11 +122,10 @@ async function loadKnobData() {
 // --- loadDisplayData function  ---
 
 
-// --- NEW: createTextTexture function restored ---
 /**
- * Creates a THREE.CanvasTexture with a 4x2 grid of text, with 2 lines per block.
+ * Creates a THREE.CanvasTexture with a 4x2 grid of text, with 3 lines per block.
  * @param {string} displayName - The name of the display ("Display01" or "Display02")
- * @param {string[][]} textArray - An array of 8 arrays, each containing 2 strings.
+ * @param {string[][]} textArray - An array of 8 arrays, each containing 3 strings.
  * @param {number} [width=512] - Canvas width.
  * @param {number} [height=128] - Canvas height.
  * @returns {THREE.CanvasTexture}
@@ -171,18 +170,19 @@ function createTextTexture(displayName, textArray, width = 512, height = 128) {
     // --- Draw Text in Blocks ---
     ctx.fillStyle = '#70bdc0'; // Use your outline color for the text
     
-    // NEW: Smaller font size to fit two lines
-    const fontSize = blockHeight * 0.3; // 30% of block height
+    // NEW: Smaller font size to fit three lines
+    const fontSize = blockHeight * 0.22; // 22% of block height
     ctx.font = `bold ${fontSize}px "Press Start 2P", monospace`; 
     
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle'; // Align text vertically to the Y-coordinate
 
     for (let i = 0; i < 8; i++) {
-        // NEW: Get the array [line1, line2] for this block
-        const textBlock = textArray[i] || ["", ""]; 
+        // NEW: Get the array [line1, line2, line3] for this block
+        const textBlock = textArray[i] || ["", "", ""]; 
         const line1 = textBlock[0] || "";
         const line2 = textBlock[1] || "";
+        const line3 = textBlock[2] || ""; // NEW: Third line
 
         // Calculate grid position
         const col = i % cols;
@@ -191,21 +191,23 @@ function createTextTexture(displayName, textArray, width = 512, height = 128) {
         // Calculate center X
         const centerX = (col * blockWidth) + (blockWidth / 2);
         
-        // NEW: Calculate Y positions for each line, relative to the block's top
+        // NEW: Calculate Y positions for 3 lines, relative to the block's top
         const blockTopY = row * blockHeight;
-        const line1Y = blockTopY + (blockHeight * 0.35); // Position at 35% down
-        const line2Y = blockTopY + (blockHeight * 0.70); // Position at 70% down
+        const line1Y = blockTopY + (blockHeight * 0.25); // Position at 25% down
+        const line2Y = blockTopY + (blockHeight * 0.50); // Position at 50% down
+        const line3Y = blockTopY + (blockHeight * 0.75); // Position at 75% down
 
-        // Draw the two lines
+        // Draw the three lines
         if (line1) {
             ctx.fillText(line1, centerX, line1Y);
         }
         if (line2) {
             ctx.fillText(line2, centerX, line2Y);
         }
+        if (line3) { // NEW: Draw third line
+            ctx.fillText(line3, centerX, line3Y);
+        }
     }
-
-    // --- REMOVED: Save canvas to global variable ---
 
     const texture = new THREE.CanvasTexture(canvas);
     texture.flipY = false;
@@ -223,30 +225,33 @@ let allDisplayScreensData = new Map();
 let displayScreensPromise; // To await this in the loader
 
 /**
- * Parses a 4x4 grid of CSV cells into the 8x2 block array needed by createTextTexture.
- * Row 1 of CSV -> Line 1 for top 4 blocks
- * Row 2 of CSV -> Line 2 for top 4 blocks
- * Row 3 of CSV -> Line 1 for bottom 4 blocks
- * Row 4 of CSV -> Line 2 for bottom 4 blocks
- * @param {string[][]} grid - A 4x4 array of strings from the CSV.
- * @returns {string[][]} An 8x2 array for createTextTexture.
+ * Parses a 6x4 grid of CSV cells into the 8x3 block array needed by createTextTexture.
+ * Row 1-3 of CSV -> Lines 1-3 for top 4 blocks
+ * Row 4-6 of CSV -> Lines 1-3 for bottom 4 blocks
+ * @param {string[][]} grid - A 6x4 array of strings from the CSV.
+ * @returns {string[][]} An 8x3 array for createTextTexture.
  */
 function processGridData(grid) {
     const processed = [];
+    // NEW: Read 3 lines for each section
     const topRow1 = grid[0] || []; // L1s for blocks 1-4
     const topRow2 = grid[1] || []; // L2s for blocks 1-4
-    const btmRow1 = grid[2] || []; // L1s for blocks 5-8
-    const btmRow2 = grid[3] || []; // L2s for blocks 5-8
+    const topRow3 = grid[2] || []; // L3s for blocks 1-4
+    const btmRow1 = grid[3] || []; // L1s for blocks 5-8
+    const btmRow2 = grid[4] || []; // L2s for blocks 5-8
+    const btmRow3 = grid[5] || []; // L3s for blocks 5-8
 
     // Process top row blocks (index 0-3)
     for (let i = 0; i < 4; i++) {
-        processed.push([ topRow1[i] || "", topRow2[i] || "" ]);
+        // NEW: Push a 3-element array
+        processed.push([ topRow1[i] || "", topRow2[i] || "", topRow3[i] || "" ]);
     }
     // Process bottom row blocks (index 4-7)
     for (let i = 0; i < 4; i++) {
-        processed.push([ btmRow1[i] || "", btmRow2[i] || "" ]);
+        // NEW: Push a 3-element array
+        processed.push([ btmRow1[i] || "", btmRow2[i] || "", btmRow3[i] || "" ]);
     }
-    return processed; // This will be an 8x2 array
+    return processed; // This will be an 8x3 array
 }
 
 /**
@@ -445,7 +450,11 @@ loader.load(
                 // --- BLOCK 1: Your existing logic to set up displays ---
                 // This runs first, turning the displays into emissive materials.
                 if (child.name === 'Display01' || child.name === 'Display02') {
-                    const defaultArray = [["1-1", "1-2"], ["2-1", "2-2"], ["3-1", "3-2"], ["4-1", "4-2"], ["5-1", "5-2"], ["6-1", "6-2"], ["7-1", "7-2"], ["8-1", "8-2"]];
+                    const defaultArray = [
+                        ["1-1", "1-2", "1-3"], ["2-1", "2-2", "2-3"], 
+                        ["3-1", "3-2", "3-3"], ["4-1", "4-2", "4-3"],
+                        ["5-1", "5-2", "5-3"], ["6-1", "6-2", "6-3"], 
+                        ["7-1", "7-2", "7-3"], ["8-1", "8-2", "8-3"]]
                     
                     // --- NEW LOGIC TO GET DEFAULT SCREEN ---
                     const screensForThisDisplay = allDisplayScreensData.get(child.name);
