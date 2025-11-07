@@ -34,10 +34,6 @@ let currentDescriptionText = "";
 let knobDescriptions = new Map();
 let softButtonStates = new Map(); // Key: Object Name (e.g., 'soft1'), Value: State (0, 1, or 2)
 
-// --- DISPLAY TEXT LOADING ---
-let displayData = new Map();
-let displayDataPromise; // To await this in the loader
-
 function resetButtonLEDs(targetButton) {
     const grouplist = [b_group1, b_group2, b_group3];
 
@@ -123,55 +119,8 @@ async function loadKnobData() {
     }
 }
 
-// --- NEW: loadDisplayData function restored ---
-async function loadDisplayData() {
-    try {
-        const response = await fetch('displays.csv');
-        const data = await response.text();
-        const lines = data.split('\n');
+// --- loadDisplayData function  ---
 
-        // 1. Parse all 8 text values from each line into a temporary map
-        const tempRowData = new Map();
-        for (let i = 1; i < lines.length; i++) { // Start at 1 to skip header
-            const line = lines[i].trim();
-            if (!line) continue;
-
-            const parts = line.split(',');
-            const objectNameKey = (parts[0] || "").trim(); // e.g., "Display01_L1"
-            if (!objectNameKey) continue;
-
-            const textValues = [];
-            for (let j = 1; j <= 8; j++) { // Get Text1 through Text8
-                const text = (parts[j] || "").trim().replace(/^"|"$/g, '');
-                textValues.push(text);
-            }
-            tempRowData.set(objectNameKey, textValues);
-        }
-
-        // 2. Combine the L1 and L2 data into the final nested array structure
-        const displayNames = ["Display01", "Display02"]; // Add more display names here if needed
-        for (const name of displayNames) {
-            const line1Data = tempRowData.get(`${name}_L1`);
-            const line2Data = tempRowData.get(`${name}_L2`);
-
-            if (!line1Data || !line2Data) {
-                console.warn(`Missing L1 or L2 data for ${name}`);
-                continue;
-            }
-
-            const combinedBlocks = []; // This will be [ ["B1_L1", "B1_L2"], ["B2_L1", "B2_L2"], ... ]
-            for (let i = 0; i < 8; i++) {
-                combinedBlocks.push([ line1Data[i] || "", line2Data[i] || "" ]);
-            }
-            
-            displayData.set(name, combinedBlocks); // Set the final data for "Display01", "Display02", etc.
-        }
-
-        console.log('Display data loaded (wide row format):', displayData);
-    } catch (error) {
-        console.error('Error loading display CSV data:', error);
-    }
-}
 
 // --- NEW: createTextTexture function restored ---
 /**
@@ -267,11 +216,145 @@ function createTextTexture(displayName, textArray, width = 512, height = 128) {
     return texture;
 }
 
+// --- DISPLAY TEXT LOADING (NEW) ---
+// This will store: Map<'Display01', Map<'ScreenName', string[][]>>
+// e.g., allDisplayScreensData.get('Display01').get('--- MAIN SCREEN ---')
+let allDisplayScreensData = new Map();
+let displayScreensPromise; // To await this in the loader
+
+/**
+ * Parses a 4x4 grid of CSV cells into the 8x2 block array needed by createTextTexture.
+ * Row 1 of CSV -> Line 1 for top 4 blocks
+ * Row 2 of CSV -> Line 2 for top 4 blocks
+ * Row 3 of CSV -> Line 1 for bottom 4 blocks
+ * Row 4 of CSV -> Line 2 for bottom 4 blocks
+ * @param {string[][]} grid - A 4x4 array of strings from the CSV.
+ * @returns {string[][]} An 8x2 array for createTextTexture.
+ */
+function processGridData(grid) {
+    const processed = [];
+    const topRow1 = grid[0] || []; // L1s for blocks 1-4
+    const topRow2 = grid[1] || []; // L2s for blocks 1-4
+    const btmRow1 = grid[2] || []; // L1s for blocks 5-8
+    const btmRow2 = grid[3] || []; // L2s for blocks 5-8
+
+    // Process top row blocks (index 0-3)
+    for (let i = 0; i < 4; i++) {
+        processed.push([ topRow1[i] || "", topRow2[i] || "" ]);
+    }
+    // Process bottom row blocks (index 4-7)
+    for (let i = 0; i < 4; i++) {
+        processed.push([ btmRow1[i] || "", btmRow2[i] || "" ]);
+    }
+    return processed; // This will be an 8x2 array
+}
+
+/**
+ * Parses the new display CSV format (header + 4x4 grid).
+ * @param {string} csvText - The raw text content of the CSV file.
+ * @returns {Map<string, string[][]>} A map where key is screen name, value is 8x2 text array.
+ */
+/**
+ * Parses the new display CSV format (header + 4x4 grid).
+ * @param {string} csvText - The raw text content of the CSV file.
+ * @returns {Map<string, string[][]>} A map where key is screen name, value is 8x2 text array.
+ */
+function parseDisplayCSV(csvText) {
+    // --- DEBUG 4: Check Input to Parser ---
+    console.log('parseDisplayCSV: Received text with length:', csvText ? csvText.length : 'null');
+    // --- End Debug ---
+
+    const screensMap = new Map();
+    const lines = csvText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+
+    let currentScreenName = null;
+    let currentScreenGrid = [];
+
+    for (const line of lines) {
+        
+        // --- DEBUG 5: Check Parser Logic ---
+        console.log(`parseDisplayCSV: Processing line: "${line}"`);
+        // --- End Debug ---
+
+        // --- NEW, MORE ROBUST HEADER CHECK ---
+        // 1. Split by comma first to handle stray commas
+        const parts = line.split(',');
+        
+        // 2. Clean the *first part* of the line
+        const potentialHeader = parts[0].trim().replace(/^"|"$/g, '');
+
+        // 3. Check if *that part* matches the '*' pattern
+        if (potentialHeader.startsWith('*')) {
+            
+            // This IS a header line
+            if (currentScreenName && currentScreenGrid.length > 0) {
+                const processedData = processGridData(currentScreenGrid);
+                screensMap.set(currentScreenName, processedData);
+            }
+            
+            // Use the cleaned header name
+            currentScreenName = potentialHeader; 
+            
+            // --- DEBUG 6: Found a Header ---
+            console.log('parseDisplayCSV: FOUND NEW SCREEN HEADER:', currentScreenName);
+            // --- End Debug ---
+            
+            currentScreenGrid = []; // Reset the grid
+        } else if (currentScreenName) {
+            // This is a data line for the current screen
+            // RE-USE the 'parts' variable from above
+            const rowData = parts.slice(1).map(cell => cell.trim().replace(/^"|"$/g, ''));
+            currentScreenGrid.push(rowData);
+        } else {
+            // --- DEBUG 7: Skipped a Line ---
+            console.warn('parseDisplayCSV: Skipped line (no current screen header set):', line);
+            // --- End Debug ---
+        }
+    }
+
+    // After the loop, save the very last screen
+    if (currentScreenName && currentScreenGrid.length > 0) {
+        const processedData = processGridData(currentScreenGrid);
+        screensMap.set(currentScreenName, processedData);
+    }
+    
+    // --- DEBUG 8: Check Parser Output ---
+    console.log('parseDisplayCSV: Finished parsing. Returning map:', screensMap);
+    // --- End Debug ---
+    
+    return screensMap;
+}
+
+/**
+ * Fetches and parses both display CSV files.
+ */
+async function loadAllDisplayScreens() {
+    try {
+        const [display1Response, display2Response] = await Promise.all([
+            fetch('Display_01.csv'),
+            fetch('Display_02.csv')
+        ]);
+
+        const display1Text = await display1Response.text();
+        const display2Text = await display2Response.text();
+
+        allDisplayScreensData.set('Display01', parseDisplayCSV(display1Text));
+        allDisplayScreensData.set('Display02', parseDisplayCSV(display2Text));
+        
+        console.log('All display screens loaded:', allDisplayScreensData);
+    } catch (error) {
+        console.error('Error loading display CSV data:', error);
+    }
+}
+
+// Start loading knob and display data
+loadKnobData();
+displayScreensPromise = loadAllDisplayScreens(); // 
+// --- NEW: createTextTexture function restored ---
+// ... (Your existing createTextTexture function starts here, no changes needed) ...
 
 // Start loading knob data
 loadKnobData();
-// --- NEW: displayDataPromise restored --- 
-displayDataPromise = loadDisplayData(); 
 
 // --- PULSE VARIABLES ---
 let clock = new THREE.Clock();
@@ -353,7 +436,7 @@ loader.load(
         modelToFadeIn.position.y = 0;
 
         // --- 2. AWAIT YOUR DISPLAY DATA ---
-        await displayDataPromise; 
+        await displayScreensPromise; 
 
     // --- 3. MODIFY THE TRAVERSE LOGIC ---
         modelToFadeIn.traverse((child) => {
@@ -363,7 +446,15 @@ loader.load(
                 // This runs first, turning the displays into emissive materials.
                 if (child.name === 'Display01' || child.name === 'Display02') {
                     const defaultArray = [["1-1", "1-2"], ["2-1", "2-2"], ["3-1", "3-2"], ["4-1", "4-2"], ["5-1", "5-2"], ["6-1", "6-2"], ["7-1", "7-2"], ["8-1", "8-2"]];
-                    const textArray = displayData.get(child.name) || defaultArray;
+                    
+                    // --- NEW LOGIC TO GET DEFAULT SCREEN ---
+                    const screensForThisDisplay = allDisplayScreensData.get(child.name);
+                    let textArray = defaultArray; // Fallback
+
+                    if (screensForThisDisplay && screensForThisDisplay.size > 0) {
+                        // Get the data for the *first* screen found in the CSV
+                        textArray = screensForThisDisplay.values().next().value;
+                    }
                     const texture = createTextTexture(child.name, textArray); 
 
                     const processMaterial = (material) => {

@@ -1,10 +1,10 @@
 ObjectName,Text1,Text2,Text3,Text4
-Default Screen,,,,
+*Default Screen,,,,
 L1,STEP01,STEP02,STEP03,STEP04
 L2,F3,G4,A#2,G4
 L3,A2,G2,F3,G2
 L4,STEP05,STEP06,STEP07,STEP08
-New Screen,Add any comments here about how this screen would trigger,,,
+*New Screen,Add any comments here about how this screen would trigger,,,
 L1,STEP01,STEP02,STEP03,STEP04
 L2,F3,G4,A#2,G4
 L3,A2,G2,F3,G2
