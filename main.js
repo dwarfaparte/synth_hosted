@@ -171,7 +171,7 @@ function createTextTexture(displayName, textArray, width = 512, height = 128) {
     ctx.fillStyle = '#70bdc0'; // Use your outline color for the text
     
     // NEW: Smaller font size to fit three lines
-    const fontSize = blockHeight * 0.22; // 22% of block height
+    const fontSize = blockHeight * 0.3; // 22% of block height
     ctx.font = `bold ${fontSize}px "Press Start 2P", monospace`; 
     
     ctx.textAlign = 'center';
@@ -423,7 +423,7 @@ textureLoader.load(
 let ambientLight = new THREE.AmbientLight(0xffffff, PULSE_MIN_INTENSITY); 
 scene.add(ambientLight);
 
-const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+const directionalLight = new THREE.DirectionalLight(0xffffff, 3);
 directionalLight.position.set(5, 100, 20.5);
 scene.add(directionalLight);
 
@@ -476,7 +476,6 @@ loader.load(
                     };
                     Array.isArray(child.material) ? child.material.forEach(processMaterial) : processMaterial(child.material);
                 } 
-                // --- End of Block 1 ---
 
                 // --- - Add lights to ALL emissive materials ---
                 // This helper function checks a material and adds a light if needed
@@ -586,48 +585,12 @@ function onMouseClick(event) {
 
 renderer.domElement.addEventListener('click', onMouseClick, false);
 
-// --- Mobile Touch Handlers ---
-function onTouchStart(event) {
-    if (event.touches.length === 1) {
-        const touch = event.touches[0];
-        
-        // 1. Update mouse for raycasting (for tap-to-select)
-        mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
-        mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
-        
-        // 2. Start drag logic
-        onDragStart(event);
-    }
-}
-function onTouchMove(event) {
-    if (event.touches.length === 1) { 
-        // 1. Run drag logic
-        onDragMove(event);
-        
-        // 2. Do NOT update raycaster, we are dragging
-        mouse.x = -Infinity;
-        mouse.y = -Infinity;
-    }
-}
-function onTouchEnd(event) {
-    // 1. Stop drag logic
-    onDragEnd();
-    
-    // 2. Set mouse off-screen to lock selection
-    mouse.x = -Infinity; 
-    mouse.y = -Infinity;
-}
-window.addEventListener('touchstart', onTouchStart, false);
-window.addEventListener('touchmove', onTouchMove, false);
-window.addEventListener('touchend', onTouchEnd, false);
-
 // --- Model Rotation / Drag Logic ---
 function onDragStart(event) {
     isDragging = true;
     rotationVelocityY = 0;
          
     // ---  Hide knob GUI on drag start ---
-    // REMOVED: hideGuiDisplayCanvas(); 
     if (descriptionDisplayElement) descriptionDisplayElement.style.display = 'none';
     currentDescriptionText = "";
 
@@ -648,7 +611,7 @@ function onDragMove(event) {
     if (!isDragging || !modelToFadeIn) return;
     
 // --- NEW: Reset camera focus on DRAG ---
-    if (isCameraFocused) {
+    if (isCameraFocused && !scrollHappened) {
         isCameraFocused = false;
         isCameraTransitioning = true;
         // The animate loop will handle lerping back
@@ -681,6 +644,14 @@ renderer.domElement.addEventListener('mouseup', onDragEnd, false);
 renderer.domElement.addEventListener('mouseleave', onDragEnd, false);
 
 // --- Mouse Wheel Zoom Logic ---
+// This variable acts as your "flag"
+let scrollHappened = false;
+
+// The listener just sets the flag to true
+window.addEventListener('wheel', (event) => {
+  scrollHappened = 10;
+})
+
 function onMouseWheel(event) {
     event.preventDefault(); // Stop page from scrolling
 
@@ -724,7 +695,7 @@ function checkIntersections(isClick = false) {
         }
     }
 
-    if (isClick && isCameraFocused && !hoveredInteractive) {
+    if (isCameraFocused && scrollHappened > 0) {
             
             // ...then un-focus the camera.
             isCameraFocused = false;
@@ -750,8 +721,6 @@ function checkIntersections(isClick = false) {
         const targetObject = scene.getObjectByName("Knob10");
         if (!targetObject) {
             console.error("Could not find 'Knob10' to focus on!");
-            isCameraFocused = false;
-            isCameraTransitioning = false;
             return;
         }
 
@@ -857,7 +826,10 @@ function animate() {
 
     // --- BLINK LOGIC ---
     const isBlinkOn = (Math.floor(elapsedTime * 2) % 2 === 0);
-
+    scrollHappened -= 1
+    if (scrollHappened <= 0){
+        scrollHappened = 0
+    }
 
     // ---  INTRO ZOOM ---
     if (isFadingIn && modelToFadeIn) {
@@ -966,7 +938,7 @@ function animate() {
             // 2. THIS LINE then uses it
             debugDisplayElement.textContent = `--- STATES ---
             isCameraFocused: ${isCameraFocused}
-            hoveredName: ${hoveredName}
+            scrollHappened: ${scrollHappened}
             hoveredInteractive: ${hoveredInteractive}`;
         }
         }
