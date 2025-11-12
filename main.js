@@ -119,8 +119,6 @@ async function loadKnobData() {
     }
 }
 
-// --- loadDisplayData function  ---
-
 
 /**
  * Creates a THREE.CanvasTexture with a 4x2 grid of text, with 3 lines per block.
@@ -573,7 +571,7 @@ window.addEventListener('mousemove', onMouseMove, false);
 // --- Mouse Click Handler for Interaction ---
 function onMouseClick(event) {
     // Don't register a click if we are dragging
-    if (isDragging || isCameraTransitioning) return;
+    if (isDragging /*|| isCameraTransitioning*/) return;
 
     // Set mouse position for raycaster
     mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
@@ -608,7 +606,7 @@ function onDragStart(event) {
     previousMousePosition.y = clientY;
 }
 function onDragMove(event) {
-    if (!isDragging || !modelToFadeIn) return;
+    if (!isDragging || !modelToFadeIn || isCameraFocused) return;
     
 // --- NEW: Reset camera focus on DRAG ---
     if (isCameraFocused && !scrollHappened) {
@@ -710,7 +708,10 @@ function checkIntersections(isClick = false) {
             return; // We're done, un-focusing is the only action needed.
         }
 
-    if (isClick && hoveredInteractive && (hoveredInteractive.name === 'Display01' 
+    if (isClick 
+        && hoveredInteractive
+        && isCameraFocused === false
+        && (hoveredInteractive.name === 'Display01' 
         || hoveredInteractive.name === 'Display02')) {
         isCameraFocused = true;
         isCameraTransitioning = true;
