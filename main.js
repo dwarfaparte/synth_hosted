@@ -253,101 +253,176 @@ function processGridData(grid) {
 }
 
 /**
- * Parses the new display CSV format (header + 4x4 grid).
+ * Parses the "wide" display CSV format.
+ * - Row 1: Headers for Display 01 (e.g., , "B_TimeMod_Red", , , , , , "B_TimeMod_Green", ...)
+ * - Rows 2-7: Data for Display 01
+ * - Row 9: Headers for Display 02 (which are ignored, as keys are from Row 1)
+ * - Rows 10-15: Data for Display 02
  * @param {string} csvText - The raw text content of the CSV file.
- * @returns {Map<string, string[][]>} A map where key is screen name, value is 8x2 text array.
- */
-/**
- * Parses the new display CSV format (header + 4x4 grid).
- * @param {string} csvText - The raw text content of the CSV file.
- * @returns {Map<string, string[][]>} A map where key is screen name, value is 8x2 text array.
+ * @returns {Map<string, {display1: string[][], display2: string[][]}>} 
+ * A map where key is "ButtonName_LEDState", value is an object containing 8x3 text arrays for D1 and D2.
  */
 function parseDisplayCSV(csvText) {
-    // --- DEBUG 4: Check Input to Parser ---
-    console.log('parseDisplayCSV: Received text with length:', csvText ? csvText.length : 'null');
-    // --- End Debug ---
+    console.log('parseDisplayCSV: Starting NEW "wide" CSV parser.');
 
-    const screensMap = new Map();
-    const lines = csvText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    // Map<'ScreenKey', {display1: string[][], display2: string[][]}>
+    const combinedScreensMap = new Map();
 
-    let currentScreenName = null;
-    let currentScreenGrid = [];
+    // 1. Split all lines and trim/clean cells
+    const allLines = csvText.split('\n').map(line => 
+        line.split(',').map(cell => cell.trim().replace(/^"|"$/g, ''))
+    );
 
-    for (const line of lines) {
+    if (allLines.length < 15) {
+        console.error('parseDisplayCSV: File is too short! Expected at least 15 lines.');
+        return combinedScreensMap;
+    }
+
+    // 2. Get the key definitions from the first row
+    const headerParts = allLines[0];
+
+    // 3. Get the data blocks for D1 and D2
+    const d1DataLines = allLines.slice(1, 7);  // Rows 2-7
+    const d2DataLines = allLines.slice(9, 15); // Rows 10-15
+
+    // 4. Iterate over the header columns, stepping 6 columns at a time
+    // (Each screen block is 6 columns wide: Key + 4 data cols + 1 blank separator col)
+    for (let col = 0; col < headerParts.length; col += 6) {
         
-        // --- DEBUG 5: Check Parser Logic ---
-        console.log(`parseDisplayCSV: Processing line: "${line}"`);
-        // --- End Debug ---
+        // The screen key is in the 2nd column of the block (e.g., B_TimeMod_Red)
+        const screenKey = headerParts[col + 1];
 
-        // --- NEW, MORE ROBUST HEADER CHECK ---
-        // 1. Split by comma first to handle stray commas
-        const parts = line.split(',');
-        
-        // 2. Clean the *first part* of the line
-        const potentialHeader = parts[0].trim().replace(/^"|"$/g, '');
-
-        // 3. Check if *that part* matches the '*' pattern
-        if (potentialHeader.startsWith('*')) {
-            
-            // This IS a header line
-            if (currentScreenName && currentScreenGrid.length > 0) {
-                const processedData = processGridData(currentScreenGrid);
-                screensMap.set(currentScreenName, processedData);
-            }
-            
-            // Use the cleaned header name
-            currentScreenName = potentialHeader; 
-            
-            // --- DEBUG 6: Found a Header ---
-            console.log('parseDisplayCSV: FOUND NEW SCREEN HEADER:', currentScreenName);
-            // --- End Debug ---
-            
-            currentScreenGrid = []; // Reset the grid
-        } else if (currentScreenName) {
-            // This is a data line for the current screen
-            // RE-USE the 'parts' variable from above
-            const rowData = parts.slice(1).map(cell => cell.trim().replace(/^"|"$/g, ''));
-            currentScreenGrid.push(rowData);
-        } else {
-            // --- DEBUG 7: Skipped a Line ---
-            console.warn('parseDisplayCSV: Skipped line (no current screen header set):', line);
-            // --- End Debug ---
+        // If no key, it's an empty block, so skip it
+        if (!screenKey) {
+            continue;
         }
+
+        // --- Extract Display 01 Data ---
+        // Get the 6x4 grid for this specific screen
+        const d1Grid = d1DataLines.map(rowParts => 
+            rowParts.slice(col + 1, col + 5) // Get 4 data columns
+        );
+        const processedD1Grid = processGridData(d1Grid); // Use existing helper
+
+        // --- Extract Display 02 Data ---
+        // Get the 6x4 grid for this specific screen from the D2 lines
+        const d2Grid = d2DataLines.map(rowParts => 
+            rowParts.slice(col + 1, col + 5) // Get 4 data columns
+        );
+        const processedD2Grid = processGridData(d2Grid); // Use existing helper
+
+        // --- Store the combined data under its key ---
+        combinedScreensMap.set(screenKey, {
+            display1: processedD1Grid,
+            display2: processedD2Grid
+        });
+        
+        console.log(`parseDisplayCSV: Found and parsed screen: ${screenKey}`);
     }
 
-    // After the loop, save the very last screen
-    if (currentScreenName && currentScreenGrid.length > 0) {
-        const processedData = processGridData(currentScreenGrid);
-        screensMap.set(currentScreenName, processedData);
-    }
-    
-    // --- DEBUG 8: Check Parser Output ---
-    console.log('parseDisplayCSV: Finished parsing. Returning map:', screensMap);
-    // --- End Debug ---
-    
-    return screensMap;
+    console.log(`parseDisplayCSV: Finished parsing. Returning combined map:`, combinedScreensMap);
+    return combinedScreensMap;
 }
 
+
 /**
- * Fetches and parses both display CSV files.
+ * Fetches and parses the single display CSV file.
+ * The CSV is expected to define screens for BOTH Display01 and Display02.
  */
 async function loadAllDisplayScreens() {
     try {
-        const [display1Response, display2Response] = await Promise.all([
-            fetch('Display_01.csv'),
-            fetch('Display_02.csv')
-        ]);
+        // --- CHANGE: Fetch only the single CSV file ---
+        const response = await fetch('displays.csv');
+        const displayText = await response.text();
 
-        const display1Text = await display1Response.text();
-        const display2Text = await display2Response.text();
-
-        allDisplayScreensData.set('Display01', parseDisplayCSV(display1Text));
-        allDisplayScreensData.set('Display02', parseDisplayCSV(display2Text));
+        // --- CHANGE: Pass a new structure to store the combined data ---
+        // allDisplayScreensData will now store: Map<'ScreenKey', {display1: string[][], display2: string[][]}>
+        const parsedData = parseDisplayCSV(displayText);
         
+        // This is a simplified/dummy set to keep existing logic happy for now
+        // A better approach is to change the access later, but for minimal change, 
+        // we store the data twice keyed by Display01/02
+        allDisplayScreensData.set('Display01', new Map());
+        allDisplayScreensData.set('Display02', new Map());
+        
+        // --- NEW: Map the combined data into the existing 'allDisplayScreensData' structure ---
+        // This makes the gltf loader logic work without massive changes.
+        for (const [screenKey, data] of parsedData.entries()) {
+            allDisplayScreensData.get('Display01').set(screenKey, data.display1);
+            allDisplayScreensData.get('Display02').set(screenKey, data.display2);
+        }
+
         console.log('All display screens loaded:', allDisplayScreensData);
     } catch (error) {
         console.error('Error loading display CSV data:', error);
     }
+}
+
+/**
+ * Updates the textures on Display01 and Display02 based on a screen key.
+ * @param {string} screenKey - The key to look up in allDisplayScreensData (e.g., "B_TimeMod_Red").
+ */
+function updateDisplays(screenKey) {
+    if (!allDisplayScreensData || allDisplayScreensData.size === 0) {
+        console.warn('updateDisplays: allDisplayScreensData is not ready.');
+        return;
+    }
+
+    const d1_mesh = scene.getObjectByName('Display01');
+    const d2_mesh = scene.getObjectByName('Display02');
+
+    // --- Helper to update a specific display ---
+    const updateSingleDisplay = (mesh, displayDataMap, displayName) => {
+        if (!mesh) {
+            console.warn(`updateDisplays: Could not find mesh for ${displayName}.`);
+            return;
+        }
+        
+        if (!displayDataMap) {
+             console.warn(`updateDisplays: No data map found for ${displayName}.`);
+             return;
+        }
+        
+        const screenData = displayDataMap.get(screenKey);
+        if (!screenData) {
+            // This is common if a button doesn't have a screen (e.g., Accent)
+            console.log(`updateDisplays: No data found for key "${screenKey}" in ${displayName}.`);
+            return;
+        }
+
+        // Create the new texture
+        const newTexture = createTextTexture(displayName, screenData);
+
+        // Find and update the material(s)
+        const processMaterial = (material) => {
+            // Dispose of the old texture to prevent memory leaks
+            if (material.map && material.map.dispose) material.map.dispose();
+            if (material.emissiveMap && material.emissiveMap.dispose) material.emissiveMap.dispose();
+
+            material.map = newTexture;
+            material.emissiveMap = newTexture;
+            material.needsUpdate = true;
+        };
+        
+        if (Array.isArray(mesh.material)) {
+            // Handle multi-material meshes
+            mesh.material.forEach(mat => {
+                 // Only update the material that is the screen
+                if (mat.name.includes('DisplayScreen')) { 
+                    processMaterial(mat);
+                }
+            });
+        } else {
+            // Handle single-material meshes
+            processMaterial(mesh.material);
+        }
+        
+        console.log(`Updated ${displayName} with key: ${screenKey}`);
+    };
+
+    // --- Update both displays ---
+    updateSingleDisplay(d1_mesh, allDisplayScreensData.get('Display01'), 'Display01');
+    updateSingleDisplay(d2_mesh, allDisplayScreensData.get('Display02'), 'Display02');
 }
 
 // Start loading knob and display data
@@ -460,6 +535,7 @@ loader.load(
 
                     if (screensForThisDisplay && screensForThisDisplay.size > 0) {
                         // Get the data for the *first* screen found in the CSV
+                        // This is a fallback in case the B_TimeMod_Red key fails
                         textArray = screensForThisDisplay.values().next().value;
                     }
                     const texture = createTextTexture(child.name, textArray); 
@@ -512,12 +588,22 @@ loader.load(
         scene.add(modelToFadeIn);
 
         // Set Button intial states
+        // State 1 = Red (Green=0, Red=5)
         resetButtonLEDs('B_Soft01');
         setButtonLEDs(['B_Soft01'], 0, 5);
+        softButtonStates.set('B_Soft01', 1); // <-- ADDED: Set logical state to 1 (Red)
+
         resetButtonLEDs('B_Soft05');
         setButtonLEDs(['B_Soft05'], 0, 5);
+        softButtonStates.set('B_Soft05', 1); // <-- ADDED: Set logical state to 1 (Red)
+
         resetButtonLEDs('B_TimeMod');
         setButtonLEDs(['B_TimeMod'], 0, 5);
+        softButtonStates.set('B_TimeMod', 1); // <-- ADDED: Set logical state to 1 (Red)
+
+        // --- NEW: Load the default screen ---
+        // We assume the default screen is B_TimeMod's "Red" state
+        updateDisplays("B_TimeMod_Red"); 
 
         //isFadingIn = true; // Waits for start button
         console.log('Model loaded, starting fade-in and curved zoom-in!');
@@ -742,33 +828,46 @@ function checkIntersections(isClick = false) {
         targetCameraUp.copy(displayUp);
         return; // Stop processing, we've handled the display click
     }
+    
     // --- SOFT BUTTON CLICK LOGIC --
-
     if (isClick && hoveredInteractive && hoveredInteractive.name.includes('B_')) {
         const buttonName = hoveredInteractive.name;
         
-        // 1. Get the current state (default to 0 if new)
-        let currentState = softButtonStates.get(buttonName) || 0;
+        // 1. Get the current state (e.g., 1 for Red)
+        let currentState = softButtonStates.get(buttonName);
+        // If undefined (for a button not set at init), default to 1 (Red)
+        if (currentState === undefined) currentState = 1; 
 
-        // 2. Cycle the state (0 -> 1 -> 0)
+        // 2. Cycle the state (1 -> 0 -> 1)
         currentState = (currentState + 1) % 2;
         softButtonStates.set(buttonName, currentState);
         
         console.log(`${buttonName} clicked. New state: ${currentState}`);
         
-        // 4. Apply the new emission intensity based on the state
-            resetButtonLEDs(buttonName); // Reset other buttons in the group first
-            switch (currentState) {
-                case 0:
-                    // State 0: Red bright (5), Green dim (0.2)
-                    setButtonLEDs([buttonName], 5, 0)
-                    break;
-                case 1:
-                    // State 1: Green bright (5), Red dim (0.2)
-                    setButtonLEDs([buttonName], 0, 5)
-                    break;
-            }        
+        // 3. Apply the new emission intensity based on the state
+        resetButtonLEDs(buttonName); // Reset other buttons in the group first
+
+        // --- NEW: Determine LED string and screen key ---
+        let ledStateString = "";
         
+        switch (currentState) {
+            case 0:
+                // State 0: Green bright (5), Red dim (0)
+                setButtonLEDs([buttonName], 5, 0);
+                ledStateString = "Green"; // State 0 maps to "Green"
+                break;
+            case 1:
+                // State 1: Red bright (5), Green dim (0)
+                setButtonLEDs([buttonName], 0, 5);
+                ledStateString = "Red"; // State 1 maps to "Red"
+                break;
+        }        
+        
+        // --- NEW: Construct the key and update the displays ---
+        const screenKey = `${buttonName}_${ledStateString}`;
+        updateDisplays(screenKey);
+        // --- END NEW ---
+
         // Clear hover/selection effect immediately after click
         selectedObject = null;
         outlinePass.selectedObjects = [];
@@ -940,7 +1039,7 @@ function animate() {
             debugDisplayElement.textContent = `--- STATES ---
             isCameraFocused: ${isCameraFocused}
             scrollHappened: ${scrollHappened}
-            hoveredInteractive: ${hoveredInteractive}`;
+            hoveredInteractive: ${hoveredInteractive ? hoveredInteractive.name : 'null'}`;
         }
         }
     }
