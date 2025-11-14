@@ -169,7 +169,7 @@ function createTextTexture(displayName, textArray, width = 512, height = 128) {
     ctx.fillStyle = '#70bdc0'; // Use your outline color for the text
     
     // NEW: Smaller font size to fit three lines
-    const fontSize = blockHeight * 0.3; // 22% of block height
+    const fontSize = blockHeight * 0.22; // 22% of block height
     ctx.font = `bold ${fontSize}px "Press Start 2P", monospace`; 
     
     ctx.textAlign = 'center';
@@ -520,37 +520,6 @@ loader.load(
         modelToFadeIn.traverse((child) => {
             if (child.isMesh && child.material) {
                 
-                // --- BLOCK 1: Your existing logic to set up displays ---
-                // This runs first, turning the displays into emissive materials.
-                if (child.name === 'Display01' || child.name === 'Display02') {
-                    const defaultArray = [
-                        ["1-1", "1-2", "1-3"], ["2-1", "2-2", "2-3"], 
-                        ["3-1", "3-2", "3-3"], ["4-1", "4-2", "4-3"],
-                        ["5-1", "5-2", "5-3"], ["6-1", "6-2", "6-3"], 
-                        ["7-1", "7-2", "7-3"], ["8-1", "8-2", "8-3"]]
-                    
-                    // --- NEW LOGIC TO GET DEFAULT SCREEN ---
-                    const screensForThisDisplay = allDisplayScreensData.get(child.name);
-                    let textArray = defaultArray; // Fallback
-
-                    if (screensForThisDisplay && screensForThisDisplay.size > 0) {
-                        // Get the data for the *first* screen found in the CSV
-                        // This is a fallback in case the B_TimeMod_Red key fails
-                        textArray = screensForThisDisplay.values().next().value;
-                    }
-                    const texture = createTextTexture(child.name, textArray); 
-
-                    const processMaterial = (material) => {
-                        material.map = texture;
-                        material.emissiveMap = texture; // Make the text glow
-                        material.emissive = new THREE.Color(0xffffff); // Glow full white
-                        material.emissiveIntensity = 0.5; // Adjust glow brightness
-                        material.toneMapped = false; // Makes the glow pop more
-                        material.needsUpdate = true;
-                    };
-                    Array.isArray(child.material) ? child.material.forEach(processMaterial) : processMaterial(child.material);
-                } 
-
                 // --- - Add lights to ALL emissive materials ---
                 // This helper function checks a material and adds a light if needed
                 let addLights = false; // <-- Set to false to disable emissive lights
@@ -679,7 +648,7 @@ function onDragStart(event) {
     currentDescriptionText = "";
 
     // Snap back to default flat rotation when click starts
-    if (modelToFadeIn) {
+    if (modelToFadeIn && isCameraFocused === false) {
         modelToFadeIn.rotation.x = DEFAULT_ROTATION_X;
         modelToFadeIn.rotation.z = 0; // Reset any z-axis float
     }
@@ -802,19 +771,35 @@ function checkIntersections(isClick = false) {
         isCameraFocused = true;
         isCameraTransitioning = true;
         rotationVelocityY = 0;
-        targetModelRotationY = 0;
+        targetModelRotationY = 0; // The Y rotation we WANT to end up at
         
+        // --- START FIX ---
+        // 1. Save the model's current rotation
+        const originalModelRotationY = modelToFadeIn.rotation.y;
+
+        // 2. Temporarily snap the model to its TARGET rotation
+        modelToFadeIn.rotation.y = targetModelRotationY; 
+
+        // 3. FORCE update the model's matrix and all its children
+        modelToFadeIn.updateMatrixWorld(true); 
+        // --- END FIX ---
+
         // --- 1. Get the Knob10 object ---
         const targetObject = scene.getObjectByName("Knob10");
         if (!targetObject) {
             console.error("Could not find 'Knob10' to focus on!");
+            // --- ADDED: Restore rotation on error ---
+            modelToFadeIn.rotation.y = originalModelRotationY;
+            // ---
             return;
         }
 
         // Calculate target camera position slightly in front of the display
         const displayWorldPos = new THREE.Vector3();
-        targetObject.updateMatrixWorld(true);
-        targetObject.getWorldPosition(displayWorldPos);
+        
+        // This will NOW get the knob's position as-if the model was at Y=0
+        targetObject.getWorldPosition(displayWorldPos); 
+        
         const displayNormal = new THREE.Vector3(0, 1, 0);
         displayNormal.applyQuaternion(targetObject.getWorldQuaternion(new THREE.Quaternion()));
         const offsetDistance = 15;
@@ -822,10 +807,18 @@ function checkIntersections(isClick = false) {
         
         // Look directly at the center of the display
         targetLookAt.copy(displayWorldPos); 
+
         // Set camera "up" vector to match display's up direction
         const displayUp = new THREE.Vector3(0, 1, 0);
         displayUp.applyQuaternion(targetObject.getWorldQuaternion(new THREE.Quaternion()));
         targetCameraUp.copy(displayUp);
+        
+        // --- START FIX ---
+        // 4. Restore the model's rotation to its original position
+        // The animate loop will now correctly LERP it from here to the target
+        modelToFadeIn.rotation.y = originalModelRotationY;
+        // --- END FIX ---
+
         return; // Stop processing, we've handled the display click
     }
     
@@ -962,6 +955,10 @@ function animate() {
                 CAMERA_FOCUS_SPEED // Use the same speed as camera
             );
 
+            const rotationDifference = Math.abs(modelToFadeIn.rotation.y - targetModelRotationY);
+            if (rotationDifference < 0.001) { // 0.001 is a good small threshold
+            modelToFadeIn.rotation.y = targetModelRotationY;}
+
             // Only apply inertia if NOT focused and NOT transitioning
             // (The transition flag is set to false when it arrives)
             if (!isCameraFocused && !isCameraTransitioning && rotationVelocityY !== 0) {
@@ -1017,31 +1014,41 @@ function animate() {
     camera.lookAt(lerpedLookAt);
     // --- END REPLACED ---
 
-    // --- Call Raycasting Logic ---
+// --- Call Raycasting Logic ---
     if (modelToFadeIn) {
         checkIntersections(false); 
-        if (debugDisplayElement) {
-            const rotation = modelToFadeIn.rotation;
-            
-            // Convert radians to degrees and format to 2 decimal places
-            const rotX = THREE.MathUtils.radToDeg(rotation.x).toFixed(2);
-            const rotY = THREE.MathUtils.radToDeg(rotation.y).toFixed(2);
-            const rotZ = THREE.MathUtils.radToDeg(rotation.z).toFixed(2);
 
-            // Use \n (newline) for textContent, or <br> for innerHTML
-            // Using 'white-space: pre' in the CSS makes \n work well.
-           if (debugDisplayElement) {
+        // --- REVISED DEBUG BLOCK (FOR CAMERA) ---
+        if (debugDisplayElement) {
             
-            // 1. THIS LINE MUST BE HERE to define 'hoveredName'
             const hoveredName = hoveredInteractive ? hoveredInteractive.name : "null"; 
+
+            // --- Camera Data ---
+            const camX = camera.position.x.toFixed(2);
+            const camY = camera.position.y.toFixed(2);
+            const camZ = camera.position.z.toFixed(2);
+
+            // THIS IS THE LIKELY CULPRIT
+            const upX = camera.up.x.toFixed(2);
+            const upY = camera.up.y.toFixed(2);
+            const upZ = camera.up.z.toFixed(2);
+
+            const lookX = lerpedLookAt.x.toFixed(2);
+            const lookY = lerpedLookAt.y.toFixed(2);
+            const lookZ = lerpedLookAt.z.toFixed(2);
             
-            // 2. THIS LINE then uses it
+            // Update textContent with camera info
             debugDisplayElement.textContent = `--- STATES ---
             isCameraFocused: ${isCameraFocused}
+            isTransitioning: ${isCameraTransitioning}
             scrollHappened: ${scrollHappened}
-            hoveredInteractive: ${hoveredInteractive ? hoveredInteractive.name : 'null'}`;
+            hovered: ${hoveredName}
+            --- CAMERA ---
+            Cam Pos: ${camX}, ${camY}, ${camZ}
+            Cam Up: ${upX}, ${upY}, ${upZ}
+            LookAt: ${lookX}, ${lookY}, ${lookZ}`;
         }
-        }
+        // --- END REVISED BLOCK ---
     }
 
     // Render via the EffectComposer
