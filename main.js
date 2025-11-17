@@ -1,3 +1,4 @@
+// Imports
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
@@ -5,7 +6,7 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { FilmPass } from 'three/addons/postprocessing/FilmPass.js';
 import { OutlinePass } from 'three/addons/postprocessing/OutlinePass.js';
 
-//  RAYCASTING & OUTLINE VARIABLES 
+//  Raycasting and Outlining Variables
 const raycaster = new THREE.Raycaster();
 const mouse = new THREE.Vector2();
 let selectedObject = null; // <-- RENAMED
@@ -17,7 +18,7 @@ const b_group1 = ['B_Soft01','B_Soft02','B_Soft03','B_Soft04'];
 const b_group2 = ['B_Soft05','B_Soft06','B_Soft07','B_Soft08'];    
 const b_group3 = ['B_TimeMod', 'B_Gate', 'B_Accent', 'B_Glide', 'B_Octave', 'B_NoteSynth'];
 
-//  DRAG & ROTATION VARIABLES 
+//  Drag and Rotation Variablse
 let isDragging = false;
 const previousMousePosition = {
     x: 0,
@@ -27,13 +28,15 @@ const previousMousePosition = {
     const INERTIA_DAMPING = 0.97; // <-- ADD: Friction (0.9 = fast stop, 0.99 = long drift)
     const DRAG_SENSITIVITY = 0.005; // <-- ADD: Your existing sensitivity as a constant
 
-// --- DISPLAY & DATA VARIABLES ---
+// Display and Data Variables
 let descriptionDisplayElement; 
 let debugDisplayElement; 
 let currentDescriptionText = ""; 
 let knobDescriptions = new Map();
 let softButtonStates = new Map(); // Key: Object Name (e.g., 'soft1'), Value: State (0, 1, or 2)
 
+
+// LED Functions
 function resetButtonLEDs(targetButton) {
     const grouplist = [b_group1, b_group2, b_group3];
 
@@ -96,6 +99,8 @@ function setButtonLEDs(buttonNames, greenIntensity, redIntensity) {
     }
 }
 
+
+// Display Functions
 // --- CSV DATA LOADING (Only for Knobs) ---
 async function loadKnobData() {
     try {
@@ -434,6 +439,7 @@ displayScreensPromise = loadAllDisplayScreens(); //
 // Start loading knob data
 loadKnobData();
 
+// Camera Functions
 // --- PULSE VARIABLES ---
 let clock = new THREE.Clock();
 const PULSE_MIN_INTENSITY = 8; 
@@ -453,6 +459,9 @@ const MAX_ZOOM_RADIUS = 70;
 const EASE_FACTOR = 0.02; 
 const DEFAULT_ROTATION_X = THREE.MathUtils.degToRad(330);
 let currentRadius = INITIAL_RADIUS;
+
+// --- CAMERA FOCUS VARIABLES ---
+let oldTargetCameraUp = new THREE.Vector3(0, 1, 0); // <-- ADD THIS LINE
 
 // --- CAMERA FOCUS VARIABLES ---
 let isCameraFocused = false; // Is the camera in a zoomed-in, focused state?
@@ -638,6 +647,7 @@ function onMouseClick(event) {
 
 renderer.domElement.addEventListener('click', onMouseClick, false);
 
+// Mouse Functions
 // --- Model Rotation / Drag Logic ---
 function onDragStart(event) {
     isDragging = true;
@@ -788,7 +798,6 @@ function checkIntersections(isClick = false) {
         const targetObject = scene.getObjectByName("Knob10");
         if (!targetObject) {
             console.error("Could not find 'Knob10' to focus on!");
-            // --- ADDED: Restore rotation on error ---
             modelToFadeIn.rotation.y = originalModelRotationY;
             // ---
             return;
@@ -797,7 +806,7 @@ function checkIntersections(isClick = false) {
         // Calculate target camera position slightly in front of the display
         const displayWorldPos = new THREE.Vector3();
         
-        // This will NOW get the knob's position as-if the model was at Y=0
+        // This will  get the knob's position as-if the model was at Y=0
         targetObject.getWorldPosition(displayWorldPos); 
         
         const displayNormal = new THREE.Vector3(0, 1, 0);
@@ -809,16 +818,12 @@ function checkIntersections(isClick = false) {
         targetLookAt.copy(displayWorldPos); 
 
         // Set camera "up" vector to match display's up direction
-        const displayUp = new THREE.Vector3(0, 1, 0);
+        const displayUp = new THREE.Vector3(0, 0, -1);
         displayUp.applyQuaternion(targetObject.getWorldQuaternion(new THREE.Quaternion()));
         targetCameraUp.copy(displayUp);
         
-        // --- START FIX ---
         // 4. Restore the model's rotation to its original position
-        // The animate loop will now correctly LERP it from here to the target
         modelToFadeIn.rotation.y = originalModelRotationY;
-        // --- END FIX ---
-
         return; // Stop processing, we've handled the display click
     }
     
@@ -907,7 +912,7 @@ function checkIntersections(isClick = false) {
     }
 }
 
-// 7. Animation Loop (Render the Scene)
+// Main Loop 
 function animate() {
     requestAnimationFrame(animate);
 
@@ -996,7 +1001,7 @@ function animate() {
             currentRadius * Math.sin(angle),
             currentRadius * Math.cos(angle)
         );
-        targetLookAt.set(0, 0, 0);
+        targetLookAt.set(0, 1, 0);
         targetCameraUp.set(0, 1, 0); // Reset "up" vector to world default
 
         if (!isDragging && modelToFadeIn) {
@@ -1012,7 +1017,19 @@ function animate() {
     // Apply the "up" vector *before* calling lookAt
     camera.up.copy(lerpedCameraUp); // 
     camera.lookAt(lerpedLookAt);
-    // --- END REPLACED ---
+
+    if (!oldTargetCameraUp.equals(oldTargetCameraUp)) {
+            // The value has changed since the last frame!
+            console.warn('targetCameraUp CHANGED!');
+            console.log('Old:', oldTargetCameraUp.x, oldTargetCameraUp.y, oldTargetCameraUp.z);
+            console.log('New:', targetCameraUp.x, targetCameraUp.y, targetCameraUp.z);
+            
+            // This is the breakpoint you wanted:
+            debugger; 
+            
+            // Update the "old" value to the "new" value for the next frame
+            oldTargetCameraUp.copy(targetCameraUp);
+        }
 
 // --- Call Raycasting Logic ---
     if (modelToFadeIn) {
@@ -1033,6 +1050,10 @@ function animate() {
             const upY = camera.up.y.toFixed(2);
             const upZ = camera.up.z.toFixed(2);
 
+            const targetUpX = targetCameraUp.x.toFixed(2);
+            const targetUpY = targetCameraUp.y.toFixed(2);
+            const targetUpZ = targetCameraUp.z.toFixed(2);
+
             const lookX = lerpedLookAt.x.toFixed(2);
             const lookY = lerpedLookAt.y.toFixed(2);
             const lookZ = lerpedLookAt.z.toFixed(2);
@@ -1046,6 +1067,7 @@ function animate() {
             --- CAMERA ---
             Cam Pos: ${camX}, ${camY}, ${camZ}
             Cam Up: ${upX}, ${upY}, ${upZ}
+            Target Up: ${targetUpX}, ${targetUpY}, ${targetUpZ}
             LookAt: ${lookX}, ${lookY}, ${lookZ}`;
         }
         // --- END REVISED BLOCK ---
@@ -1063,7 +1085,7 @@ debugDisplayElement = document.getElementById('debug-display');
 const startOverlay = document.getElementById('start-overlay');
 const startButton = document.getElementById('start-button');
 
-// --- startExperience function ---
+// Start Experience Functions
 async function startExperience() {
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     try {
