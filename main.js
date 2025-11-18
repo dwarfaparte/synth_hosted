@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { FilmPass } from 'three/addons/postprocessing/FilmPass.js';
+import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
 import { OutlinePass } from 'three/addons/postprocessing/OutlinePass.js';
 
 //  Raycasting and Outlining Variables
@@ -600,6 +600,53 @@ camera.position.y = INITIAL_RADIUS * Math.sin(angle); // Set initial position
 camera.position.z = INITIAL_RADIUS * Math.cos(angle); // Set initial position
 camera.lookAt(0, 0, 0);
 
+const CinematicGrainShader = {
+    uniforms: {
+        "tDiffuse": { value: null },
+        "amount":   { value: 0.05 }, // 0.05 is subtle, 0.1 is heavy
+        "time":     { value: 0 }
+    },
+    vertexShader: `
+        varying vec2 vUv;
+        void main() {
+            vUv = uv;
+            gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+        }
+    `,
+    fragmentShader: `
+        uniform float amount;
+        uniform float time;
+        uniform sampler2D tDiffuse;
+        varying vec2 vUv;
+
+        // High-quality pseudo-random function
+        float random( vec2 p ) {
+            vec2 K1 = vec2(
+                23.14069263277926, // e^pi (Gelfond's constant)
+                2.665144142690225  // 2^sqrt(2) (Gelfond–Schneider constant)
+            );
+            return fract( cos( dot(p,K1) ) * 12345.6789 );
+        }
+
+        void main() {
+            vec4 color = texture2D( tDiffuse, vUv );
+            vec2 uvRandom = vUv;
+            
+            // Animate the noise by offsetting with time
+            uvRandom.y *= random(vec2(uvRandom.y, time));
+            
+            float noise = random( uvRandom * time );
+            
+            // Additive mixing (subtract 0.5 to keep brightness neutral)
+            // Adjust 'amount' to control intensity
+            color.rgb += (noise - 0.5) * amount;
+
+            gl_FragColor = vec4( color.rgb, color.a );
+        }
+    `
+};
+
+
 // 6. Setup Post-Processing (Effect Composer)
 const composer = new EffectComposer(renderer);
 const renderPass = new RenderPass(scene, camera);
@@ -618,12 +665,11 @@ outlinePass.visibleEdgeColor.set('#70bdc0'); // User's new color
 outlinePass.hiddenEdgeColor.set('#110011');
 composer.addPass(outlinePass);
 
-// FilmPass for grain/noise effect
-const filmPass = new FilmPass(
-    0.35, 0.025, 648, false
-);
-filmPass.renderToScreen = true;
-composer.addPass(filmPass);
+// Cinematic Grain Custom Pass
+const grainPass = new ShaderPass(CinematicGrainShader);
+grainPass.uniforms['amount'].value = 0.08; // ADJUST THIS: Lower (0.02) = cleaner, Higher (0.1) = grittier
+grainPass.renderToScreen = true;
+composer.addPass(grainPass);
 
 // --- MODIFIED: Mouse Move Handler for Raycasting ---
 function onMouseMove(event) {
@@ -1071,6 +1117,11 @@ function animate() {
             LookAt: ${lookX}, ${lookY}, ${lookZ}`;
         }
         // --- END REVISED BLOCK ---
+    }
+
+// Update Grain Time
+    if (grainPass) {
+        grainPass.uniforms['time'].value = elapsedTime;
     }
 
     // Render via the EffectComposer
