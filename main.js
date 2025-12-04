@@ -215,6 +215,7 @@ function createTextTexture(displayName, textArray, width = 512, height = 128) {
     const texture = new THREE.CanvasTexture(canvas);
     texture.flipY = false;
     texture.wrapS = THREE.RepeatWrapping;
+    texture.colorSpace = THREE.SRGBColorSpace; // Ensure proper color rendering
     texture.needsUpdate = true;
     texture.anisotropy = renderer.capabilities.getMaxAnisotropy(); // Improves quality
 
@@ -596,6 +597,8 @@ loader.load(
 
         // --- NEW: Load the default screen ---
         // We assume the default screen is B_TimeMod's "Red" state
+        // Wait for fonts to be loaded before creating textures
+        await document.fonts.ready;
         updateDisplays("B_TimeMod_Red");
 
         //isFadingIn = true; // Waits for start button
