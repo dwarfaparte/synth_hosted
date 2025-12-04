@@ -336,7 +336,7 @@ function parseDisplayCSV(csvText) {
 async function loadAllDisplayScreens() {
     try {
         // --- CHANGE: Fetch only the single CSV file ---
-        const response = await fetch('displays_01.csv');
+        const response = await fetch('Displays.csv');
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
