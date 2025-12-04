@@ -329,7 +329,6 @@ function parseDisplayCSV(csvText) {
     return combinedScreensMap;
 }
 
-
 /**
  * Fetches and parses the single display CSV file.
  * The CSV is expected to define screens for BOTH Display01 and Display02.
@@ -338,11 +337,18 @@ async function loadAllDisplayScreens() {
     try {
         // --- CHANGE: Fetch only the single CSV file ---
         const response = await fetch('displays_01.csv');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         const displayText = await response.text();
 
         // --- CHANGE: Pass a new structure to store the combined data ---
         // allDisplayScreensData will now store: Map<'ScreenKey', {display1: string[][], display2: string[][]}>
         const parsedData = parseDisplayCSV(displayText);
+
+        if (parsedData.size === 0) {
+            throw new Error("No display data parsed. Check CSV format or file length.");
+        }
 
         // This is a simplified/dummy set to keep existing logic happy for now
         // A better approach is to change the access later, but for minimal change, 
@@ -358,15 +364,24 @@ async function loadAllDisplayScreens() {
         }
 
         console.log('All display screens loaded:', allDisplayScreensData);
+
+        // Clear any previous error messages
+        const debugDisplay = document.getElementById('debug-display');
+        if (debugDisplay) {
+            debugDisplay.innerText = '';
+            debugDisplay.style.backgroundColor = 'transparent';
+        }
+
     } catch (error) {
         console.error('Error loading display CSV data:', error);
+        const debugDisplay = document.getElementById('debug-display');
+        if (debugDisplay) {
+            debugDisplay.innerText = `Error loading CSV: ${error.message}`;
+            debugDisplay.style.backgroundColor = 'rgba(255, 0, 0, 0.8)';
+            debugDisplay.style.padding = '20px';
+        }
     }
 }
-
-/**
- * Updates the textures on Display01 and Display02 based on a screen key.
- * @param {string} screenKey - The key to look up in allDisplayScreensData (e.g., "B_TimeMod_Red").
- */
 function updateDisplays(screenKey) {
     if (!allDisplayScreensData || allDisplayScreensData.size === 0) {
         console.warn('updateDisplays: allDisplayScreensData is not ready.');
