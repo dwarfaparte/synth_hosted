@@ -3,13 +3,14 @@
     top: 20px;
     right: 20px;
     z-index: 10;
-    
+
     /* Hidden by default */
-    display: none; 
+    display: none;
 
     /* Styling */
     background: #0a0a0a;
-    border: 3px solid #70bdc0; /* Match outline color */
+    border: 3px solid #70bdc0;
+    /* Match outline color */
     box-shadow: 0 0 15px rgba(112, 189, 192, 0.5);
 }
 
@@ -21,7 +22,8 @@
 /* Style the canvas when it's inside the host */
 #gui-display-host canvas {
     display: block;
-    width: 70vh; /* Scale down the 512px canvas */
+    width: 70vh;
+    /* Scale down the 512px canvas */
     height: 18.5vh;
 
     /* Keep the crispy pixel look */
@@ -41,9 +43,12 @@
       but *above* the three.js canvas (which is at z-index -1 or 0) 
     */
     z-index: 1000;
-    pointer-events: none; /* Lets clicks go through */
-    opacity: 1; /* Start fully opaque */
-    transition: opacity 3.5s ease-out; /* Fade-out speed */
+    pointer-events: none;
+    /* Lets clicks go through */
+    opacity: 1;
+    /* Start fully opaque */
+    transition: opacity 3.5s ease-out;
+    /* Fade-out speed */
 }
 
 #debug-display {
@@ -55,7 +60,10 @@
     padding: 8px;
     font-family: monospace;
     font-size: 14px;
-    z-index: 100; /* Make sure it's on top */
+    z-index: 100;
+    /* Make sure it's on top */
     /* Use 'pre' to respect line breaks from JS */
-    white-space: pre; 
+    white-space: pre;
+    /* Hide the debug display */
+    display: none;
 }
