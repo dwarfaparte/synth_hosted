@@ -9,13 +9,13 @@ import * as THREE from 'three';
 function getRandomColorBetween(color1, color2) {
     // 1. Get a random "alpha" value (a float between 0.0 and 1.0)
     const alpha = Math.random();
-    
+
     // 2. Create a new color to store the result
     const randomColor = new THREE.Color();
-    
+
     // 3. Linearly interpolate between the two colors using the random alpha
     randomColor.lerpColors(color1, color2, alpha);
-    
+
     return randomColor;
 }
 

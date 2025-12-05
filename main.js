@@ -582,18 +582,20 @@ loader.load(
         scene.add(modelToFadeIn);
 
         // Set Button intial states
-        // State 1 = Red (Green=0, Red=5)
-        resetButtonLEDs('B_Soft01');
-        setButtonLEDs(['B_Soft01'], 0, 5);
-        softButtonStates.set('B_Soft01', 1); // <-- ADDED: Set logical state to 1 (Red)
+        // const B_Group_01 = ['B_Soft01', 'B_Soft02', 'B_Soft03', 'B_Soft04', 'B_Soft05'];
+        // const B_Group_02 = ['B_Soft06', 'B_Soft07', 'B_Soft08', 'B_Soft09', 'B_Soft10'];
+        // const B_Group_03 = ['B_Soft11', 'B_Soft12', 'B_Soft13', 'B_Soft14', 'B_Soft15'];
 
-        resetButtonLEDs('B_Soft05');
-        setButtonLEDs(['B_Soft05'], 0, 5);
-        softButtonStates.set('B_Soft05', 1); // <-- ADDED: Set logical state to 1 (Red)
+        const allButtonGroups = [B_Group_01, B_Group_02, B_Group_03];
 
-        resetButtonLEDs('B_TimeMod');
-        setButtonLEDs(['B_TimeMod'], 0, 5);
-        softButtonStates.set('B_TimeMod', 1); // <-- ADDED: Set logical state to 1 (Red)
+        // Set all buttons in the groups to initial Red state
+        allButtonGroups.forEach(group => {
+            group.forEach(buttonName => {
+                resetButtonLEDs(buttonName);
+                setButtonLEDs([buttonName], 0, 5); // Green=0, Red=5 for Red state
+                softButtonStates.set(buttonName, 1); // Logical state 1 for Red
+            });
+        });
 
         // --- NEW: Load the default screen ---
         // We assume the default screen is B_TimeMod's "Red" state
