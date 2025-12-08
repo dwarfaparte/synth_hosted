@@ -582,29 +582,15 @@ loader.load(
         scene.add(modelToFadeIn);
 
         // Set Button intial states
-        // const B_Group_01 = ['B_Soft01', 'B_Soft02', 'B_Soft03', 'B_Soft04', 'B_Soft05'];
-        // const B_Group_02 = ['B_Soft06', 'B_Soft07', 'B_Soft08', 'B_Soft09', 'B_Soft10'];
-        // const B_Group_03 = ['B_Soft11', 'B_Soft12', 'B_Soft13', 'B_Soft14', 'B_Soft15'];
+        const Start_Group = ['B_Soft01', 'B_Soft05', 'B_TimeMod'];
 
-        const allButtonGroups = [B_Group_01, B_Group_02, B_Group_03];
-
-        // Set all buttons in the groups to initial Red state
-        allButtonGroups.forEach(group => {
-            group.forEach(buttonName => {
-                resetButtonLEDs(buttonName);
-                setButtonLEDs([buttonName], 0, 5); // Green=0, Red=5 for Red state
-                softButtonStates.set(buttonName, 1); // Logical state 1 for Red
-            });
+        // Set all buttons in the groups to initial Green state
+        Start_Group.forEach(buttonName => {
+            resetButtonLEDs(buttonName);
+            setButtonLEDs([buttonName], 5, 0); // Green=5, Red=0 for Green state
+            softButtonStates.set(buttonName, 1); // Logical state 0 for Green       
         });
-
-        // --- NEW: Load the default screen ---
-        // We assume the default screen is B_TimeMod's "Red" state
-        // Wait for fonts to be loaded before creating textures
-        await document.fonts.ready;
-        updateDisplays("B_TimeMod_Red");
-
-        //isFadingIn = true; // Waits for start button
-        console.log('Model loaded, starting fade-in and curved zoom-in!');
+        updateDisplays("B_TimeMod_Green");
     },
     undefined,
     function (error) {
