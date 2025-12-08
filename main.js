@@ -14,8 +14,8 @@ let outlinePass;
 let hoveredInteractive = null;
 
 // Button Groups
-const b_group1 = ['B_Soft01','B_Soft02','B_Soft03','B_Soft04'];
-const b_group2 = ['B_Soft05','B_Soft06','B_Soft07','B_Soft08'];    
+const b_group1 = ['B_Soft01', 'B_Soft02', 'B_Soft03', 'B_Soft04'];
+const b_group2 = ['B_Soft05', 'B_Soft06', 'B_Soft07', 'B_Soft08'];
 const b_group3 = ['B_TimeMod', 'B_Gate', 'B_Accent', 'B_Glide', 'B_Octave', 'B_NoteSynth'];
 
 //  Drag and Rotation Variablse
@@ -23,15 +23,15 @@ let isDragging = false;
 const previousMousePosition = {
     x: 0,
     y: 0
-    };
-    let rotationVelocityY = 0; // <-- ADD: Stores the current spin speed
-    const INERTIA_DAMPING = 0.97; // <-- ADD: Friction (0.9 = fast stop, 0.99 = long drift)
-    const DRAG_SENSITIVITY = 0.005; // <-- ADD: Your existing sensitivity as a constant
+};
+let rotationVelocityY = 0; // <-- ADD: Stores the current spin speed
+const INERTIA_DAMPING = 0.97; // <-- ADD: Friction (0.9 = fast stop, 0.99 = long drift)
+const DRAG_SENSITIVITY = 0.005; // <-- ADD: Your existing sensitivity as a constant
 
 // Display and Data Variables
-let descriptionDisplayElement; 
-let debugDisplayElement; 
-let currentDescriptionText = ""; 
+let descriptionDisplayElement;
+let debugDisplayElement;
+let currentDescriptionText = "";
 let knobDescriptions = new Map();
 let softButtonStates = new Map(); // Key: Object Name (e.g., 'soft1'), Value: State (0, 1, or 2)
 
@@ -47,16 +47,16 @@ function resetButtonLEDs(targetButton) {
             for (const buttonName of group) {
                 setButtonLEDs([buttonName], 0, 0);
                 //softButtonStates.set(buttonName, 0); // Reset state to 0
-                }   
             }
         }
     }
+}
 
-    // Sets the LED brightness for a list of soft buttons by name.
-    // @param {string[]} buttonNames - An array of button names (e.g., ['Soft01', 'Soft02']).
-    // @param {number} greenIntensity - The desired emissive intensity for the green LED.
-    // @param {number} redIntensity - The desired emissive intensity for the red LED.
-    
+// Sets the LED brightness for a list of soft buttons by name.
+// @param {string[]} buttonNames - An array of button names (e.g., ['Soft01', 'Soft02']).
+// @param {number} greenIntensity - The desired emissive intensity for the green LED.
+// @param {number} redIntensity - The desired emissive intensity for the red LED.
+
 function setButtonLEDs(buttonNames, greenIntensity, redIntensity) {
     if (!modelToFadeIn) return; // Make sure the model is loaded
 
@@ -77,7 +77,7 @@ function setButtonLEDs(buttonNames, greenIntensity, redIntensity) {
             if (child.isMesh) {
                 // This handles both single and multi-material meshes
                 const materials = Array.isArray(child.material) ? child.material : [child.material];
-                
+
                 materials.forEach(mat => {
                     if (mat.name.includes('redLED')) redLEDMaterial = mat;
                     if (mat.name.includes('greenLED')) greenLEDMaterial = mat;
@@ -106,14 +106,14 @@ async function loadKnobData() {
     try {
         const response = await fetch('tooltips.csv');
         const data = await response.text();
-        const lines = data.split('\n'); 
+        const lines = data.split('\n');
         for (let i = 1; i < lines.length; i++) {
             const line = lines[i].trim();
             if (line) {
                 const commaIndex = line.indexOf(',');
                 if (commaIndex !== -1) {
                     const name = line.substring(0, commaIndex).trim();
-                    const description = line.substring(commaIndex + 1).trim().replace(/^"|"$/g, ''); 
+                    const description = line.substring(commaIndex + 1).trim().replace(/^"|"$/g, '');
                     knobDescriptions.set(name, description);
                 }
             }
@@ -137,11 +137,11 @@ function createTextTexture(displayName, textArray, width = 512, height = 128) {
     const canvas = document.createElement('canvas');
     canvas.width = width;
     canvas.height = height;
-    
+
     const ctx = canvas.getContext('2d');
-    
+
     // Crispy pixel setting
-    ctx.imageSmoothingEnabled = false; 
+    ctx.imageSmoothingEnabled = false;
 
     // Background
     ctx.fillStyle = '#0a0a0a'; // Dark screen background
@@ -172,17 +172,17 @@ function createTextTexture(displayName, textArray, width = 512, height = 128) {
 
     // --- Draw Text in Blocks ---
     ctx.fillStyle = '#70bdc0'; // Use your outline color for the text
-    
+
     // NEW: Smaller font size to fit three lines
     const fontSize = blockHeight * 0.22; // 22% of block height
-    ctx.font = `bold ${fontSize}px "Press Start 2P", monospace`; 
-    
+    ctx.font = `bold ${fontSize}px "Press Start 2P", monospace`;
+
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle'; // Align text vertically to the Y-coordinate
 
     for (let i = 0; i < 8; i++) {
         // NEW: Get the array [line1, line2, line3] for this block
-        const textBlock = textArray[i] || ["", "", ""]; 
+        const textBlock = textArray[i] || ["", "", ""];
         const line1 = textBlock[0] || "";
         const line2 = textBlock[1] || "";
         const line3 = textBlock[2] || ""; // NEW: Third line
@@ -193,7 +193,7 @@ function createTextTexture(displayName, textArray, width = 512, height = 128) {
 
         // Calculate center X
         const centerX = (col * blockWidth) + (blockWidth / 2);
-        
+
         // NEW: Calculate Y positions for 3 lines, relative to the block's top
         const blockTopY = row * blockHeight;
         const line1Y = blockTopY + (blockHeight * 0.25); // Position at 25% down
@@ -215,9 +215,10 @@ function createTextTexture(displayName, textArray, width = 512, height = 128) {
     const texture = new THREE.CanvasTexture(canvas);
     texture.flipY = false;
     texture.wrapS = THREE.RepeatWrapping;
+    texture.colorSpace = THREE.SRGBColorSpace; // Ensure proper color rendering
     texture.needsUpdate = true;
     texture.anisotropy = renderer.capabilities.getMaxAnisotropy(); // Improves quality
-    
+
     return texture;
 }
 
@@ -247,12 +248,12 @@ function processGridData(grid) {
     // Process top row blocks (index 0-3)
     for (let i = 0; i < 4; i++) {
         // NEW: Push a 3-element array
-        processed.push([ topRow1[i] || "", topRow2[i] || "", topRow3[i] || "" ]);
+        processed.push([topRow1[i] || "", topRow2[i] || "", topRow3[i] || ""]);
     }
     // Process bottom row blocks (index 4-7)
     for (let i = 0; i < 4; i++) {
         // NEW: Push a 3-element array
-        processed.push([ btmRow1[i] || "", btmRow2[i] || "", btmRow3[i] || "" ]);
+        processed.push([btmRow1[i] || "", btmRow2[i] || "", btmRow3[i] || ""]);
     }
     return processed; // This will be an 8x3 array
 }
@@ -274,7 +275,7 @@ function parseDisplayCSV(csvText) {
     const combinedScreensMap = new Map();
 
     // 1. Split all lines and trim/clean cells
-    const allLines = csvText.split('\n').map(line => 
+    const allLines = csvText.split('\n').map(line =>
         line.split(',').map(cell => cell.trim().replace(/^"|"$/g, ''))
     );
 
@@ -293,7 +294,7 @@ function parseDisplayCSV(csvText) {
     // 4. Iterate over the header columns, stepping 6 columns at a time
     // (Each screen block is 6 columns wide: Key + 4 data cols + 1 blank separator col)
     for (let col = 0; col < headerParts.length; col += 6) {
-        
+
         // The screen key is in the 2nd column of the block (e.g., B_TimeMod_Red)
         const screenKey = headerParts[col + 1];
 
@@ -304,14 +305,14 @@ function parseDisplayCSV(csvText) {
 
         // --- Extract Display 01 Data ---
         // Get the 6x4 grid for this specific screen
-        const d1Grid = d1DataLines.map(rowParts => 
+        const d1Grid = d1DataLines.map(rowParts =>
             rowParts.slice(col + 1, col + 5) // Get 4 data columns
         );
         const processedD1Grid = processGridData(d1Grid); // Use existing helper
 
         // --- Extract Display 02 Data ---
         // Get the 6x4 grid for this specific screen from the D2 lines
-        const d2Grid = d2DataLines.map(rowParts => 
+        const d2Grid = d2DataLines.map(rowParts =>
             rowParts.slice(col + 1, col + 5) // Get 4 data columns
         );
         const processedD2Grid = processGridData(d2Grid); // Use existing helper
@@ -321,14 +322,13 @@ function parseDisplayCSV(csvText) {
             display1: processedD1Grid,
             display2: processedD2Grid
         });
-        
+
         console.log(`parseDisplayCSV: Found and parsed screen: ${screenKey}`);
     }
 
     console.log(`parseDisplayCSV: Finished parsing. Returning combined map:`, combinedScreensMap);
     return combinedScreensMap;
 }
-
 
 /**
  * Fetches and parses the single display CSV file.
@@ -337,19 +337,26 @@ function parseDisplayCSV(csvText) {
 async function loadAllDisplayScreens() {
     try {
         // --- CHANGE: Fetch only the single CSV file ---
-        const response = await fetch('displays.csv');
+        const response = await fetch('Displays.csv');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
         const displayText = await response.text();
 
         // --- CHANGE: Pass a new structure to store the combined data ---
         // allDisplayScreensData will now store: Map<'ScreenKey', {display1: string[][], display2: string[][]}>
         const parsedData = parseDisplayCSV(displayText);
-        
+
+        if (parsedData.size === 0) {
+            throw new Error("No display data parsed. Check CSV format or file length.");
+        }
+
         // This is a simplified/dummy set to keep existing logic happy for now
         // A better approach is to change the access later, but for minimal change, 
         // we store the data twice keyed by Display01/02
         allDisplayScreensData.set('Display01', new Map());
         allDisplayScreensData.set('Display02', new Map());
-        
+
         // --- NEW: Map the combined data into the existing 'allDisplayScreensData' structure ---
         // This makes the gltf loader logic work without massive changes.
         for (const [screenKey, data] of parsedData.entries()) {
@@ -358,15 +365,24 @@ async function loadAllDisplayScreens() {
         }
 
         console.log('All display screens loaded:', allDisplayScreensData);
+
+        // Clear any previous error messages
+        const debugDisplay = document.getElementById('debug-display');
+        if (debugDisplay) {
+            debugDisplay.innerText = '';
+            debugDisplay.style.backgroundColor = 'transparent';
+        }
+
     } catch (error) {
         console.error('Error loading display CSV data:', error);
+        const debugDisplay = document.getElementById('debug-display');
+        if (debugDisplay) {
+            debugDisplay.innerText = `Error loading CSV: ${error.message}`;
+            debugDisplay.style.backgroundColor = 'rgba(255, 0, 0, 0.8)';
+            debugDisplay.style.padding = '20px';
+        }
     }
 }
-
-/**
- * Updates the textures on Display01 and Display02 based on a screen key.
- * @param {string} screenKey - The key to look up in allDisplayScreensData (e.g., "B_TimeMod_Red").
- */
 function updateDisplays(screenKey) {
     if (!allDisplayScreensData || allDisplayScreensData.size === 0) {
         console.warn('updateDisplays: allDisplayScreensData is not ready.');
@@ -382,12 +398,12 @@ function updateDisplays(screenKey) {
             console.warn(`updateDisplays: Could not find mesh for ${displayName}.`);
             return;
         }
-        
+
         if (!displayDataMap) {
-             console.warn(`updateDisplays: No data map found for ${displayName}.`);
-             return;
+            console.warn(`updateDisplays: No data map found for ${displayName}.`);
+            return;
         }
-        
+
         const screenData = displayDataMap.get(screenKey);
         if (!screenData) {
             // This is common if a button doesn't have a screen (e.g., Accent)
@@ -408,12 +424,12 @@ function updateDisplays(screenKey) {
             material.emissiveMap = newTexture;
             material.needsUpdate = true;
         };
-        
+
         if (Array.isArray(mesh.material)) {
             // Handle multi-material meshes
             mesh.material.forEach(mat => {
-                 // Only update the material that is the screen
-                if (mat.name.includes('DisplayScreen')) { 
+                // Only update the material that is the screen
+                if (mat.name.includes('DisplayScreen')) {
                     processMaterial(mat);
                 }
             });
@@ -421,7 +437,7 @@ function updateDisplays(screenKey) {
             // Handle single-material meshes
             processMaterial(mesh.material);
         }
-        
+
         console.log(`Updated ${displayName} with key: ${screenKey}`);
     };
 
@@ -442,21 +458,21 @@ loadKnobData();
 // Camera Functions
 // --- PULSE VARIABLES ---
 let clock = new THREE.Clock();
-const PULSE_MIN_INTENSITY = 8; 
-const PULSE_MAX_INTENSITY = 8.5; 
-const PULSE_SPEED = 2; 
+const PULSE_MIN_INTENSITY = 8;
+const PULSE_MAX_INTENSITY = 8.5;
+const PULSE_SPEED = 2;
 
 // --- FADE-IN & ZOOM-IN VARIABLES ---
-let modelToFadeIn; 
+let modelToFadeIn;
 let isFadingIn = false; // intro sequence is running
 
 // Zoom-in variables
 const INITIAL_RADIUS = 70;
-const FINAL_RADIUS = 40; 
+const FINAL_RADIUS = 40;
 const MIN_ZOOM_RADIUS = 10;
 const MAX_ZOOM_RADIUS = 70;
 
-const EASE_FACTOR = 0.02; 
+const EASE_FACTOR = 0.02;
 const DEFAULT_ROTATION_X = THREE.MathUtils.degToRad(330);
 let currentRadius = INITIAL_RADIUS;
 
@@ -489,20 +505,20 @@ const backgroundPath = 'Synth Model/skybox_bright.jpg';
 
 textureLoader.load(
     backgroundPath,
-    function(texture) {
+    function (texture) {
         scene.background = texture;
         texture.mapping = THREE.EquirectangularReflectionMapping;
         scene.environment = texture; // Set environment for reflections
     },
     undefined,
-    function(error) {
+    function (error) {
         console.error('An error happened while loading the background texture:', error);
         scene.background = new THREE.Color(0xcccccc);
     }
 );
 
 // 2. Add Lighting
-let ambientLight = new THREE.AmbientLight(0xffffff, PULSE_MIN_INTENSITY); 
+let ambientLight = new THREE.AmbientLight(0xffffff, PULSE_MIN_INTENSITY);
 scene.add(ambientLight);
 
 const directionalLight = new THREE.DirectionalLight(0xffffff, 3);
@@ -523,12 +539,12 @@ loader.load(
         modelToFadeIn.position.y = 0;
 
         // --- 2. AWAIT YOUR DISPLAY DATA ---
-        await displayScreensPromise; 
+        await displayScreensPromise;
 
-    // --- 3. MODIFY THE TRAVERSE LOGIC ---
+        // --- 3. MODIFY THE TRAVERSE LOGIC ---
         modelToFadeIn.traverse((child) => {
             if (child.isMesh && child.material) {
-                
+
                 // --- - Add lights to ALL emissive materials ---
                 // This helper function checks a material and adds a light if needed
                 let addLights = false; // <-- Set to false to disable emissive lights
@@ -542,10 +558,10 @@ loader.load(
                             material.emissiveIntensity * 1.0, // Tweak this intensity multiplier!
                             10 // Tweak this distance! (0 = infinite)
                         );
-                        
+
                         // Place the light at the center of the mesh
-                        light.position.set(0, 0, 0); 
-                        
+                        light.position.set(0, 0, 0);
+
                         // Parent the light to the mesh so it moves with it
                         child.add(light);
 
@@ -566,22 +582,26 @@ loader.load(
         scene.add(modelToFadeIn);
 
         // Set Button intial states
-        // State 1 = Red (Green=0, Red=5)
-        resetButtonLEDs('B_Soft01');
-        setButtonLEDs(['B_Soft01'], 0, 5);
-        softButtonStates.set('B_Soft01', 1); // <-- ADDED: Set logical state to 1 (Red)
+        // const B_Group_01 = ['B_Soft01', 'B_Soft02', 'B_Soft03', 'B_Soft04', 'B_Soft05'];
+        // const B_Group_02 = ['B_Soft06', 'B_Soft07', 'B_Soft08', 'B_Soft09', 'B_Soft10'];
+        // const B_Group_03 = ['B_Soft11', 'B_Soft12', 'B_Soft13', 'B_Soft14', 'B_Soft15'];
 
-        resetButtonLEDs('B_Soft05');
-        setButtonLEDs(['B_Soft05'], 0, 5);
-        softButtonStates.set('B_Soft05', 1); // <-- ADDED: Set logical state to 1 (Red)
+        const allButtonGroups = [B_Group_01, B_Group_02, B_Group_03];
 
-        resetButtonLEDs('B_TimeMod');
-        setButtonLEDs(['B_TimeMod'], 0, 5);
-        softButtonStates.set('B_TimeMod', 1); // <-- ADDED: Set logical state to 1 (Red)
+        // Set all buttons in the groups to initial Red state
+        allButtonGroups.forEach(group => {
+            group.forEach(buttonName => {
+                resetButtonLEDs(buttonName);
+                setButtonLEDs([buttonName], 0, 5); // Green=0, Red=5 for Red state
+                softButtonStates.set(buttonName, 1); // Logical state 1 for Red
+            });
+        });
 
         // --- NEW: Load the default screen ---
         // We assume the default screen is B_TimeMod's "Red" state
-        updateDisplays("B_TimeMod_Red"); 
+        // Wait for fonts to be loaded before creating textures
+        await document.fonts.ready;
+        updateDisplays("B_TimeMod_Red");
 
         //isFadingIn = true; // Waits for start button
         console.log('Model loaded, starting fade-in and curved zoom-in!');
@@ -603,8 +623,8 @@ camera.lookAt(0, 0, 0);
 const CinematicGrainShader = {
     uniforms: {
         "tDiffuse": { value: null },
-        "amount":   { value: 0.05 }, // 0.05 is subtle, 0.1 is heavy
-        "time":     { value: 0 }
+        "amount": { value: 0.05 }, // 0.05 is subtle, 0.1 is heavy
+        "time": { value: 0 }
     },
     vertexShader: `
         varying vec2 vUv;
@@ -654,12 +674,12 @@ composer.addPass(renderPass);
 
 // --- OutlinePass for hover effect ---
 outlinePass = new OutlinePass(
-    new THREE.Vector2(window.innerWidth, window.innerHeight), 
-    scene, 
+    new THREE.Vector2(window.innerWidth, window.innerHeight),
+    scene,
     camera
 );
 outlinePass.edgeStrength = 3.0;
-outlinePass.edgeGlow = 0.5;   
+outlinePass.edgeGlow = 0.5;
 outlinePass.edgeThickness = 1.0;
 outlinePass.visibleEdgeColor.set('#70bdc0'); // User's new color
 outlinePass.hiddenEdgeColor.set('#110011');
@@ -686,7 +706,7 @@ function onMouseClick(event) {
     // Set mouse position for raycaster
     mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
-    
+
     // Check intersections immediately on click
     checkIntersections(true); // <-- Pass 'true' to indicate a click action
 }
@@ -698,7 +718,7 @@ renderer.domElement.addEventListener('click', onMouseClick, false);
 function onDragStart(event) {
     isDragging = true;
     rotationVelocityY = 0;
-         
+
     // ---  Hide knob GUI on drag start ---
     if (descriptionDisplayElement) descriptionDisplayElement.style.display = 'none';
     currentDescriptionText = "";
@@ -712,14 +732,14 @@ function onDragStart(event) {
     // Get initial position
     const clientX = event.clientX || event.touches[0].clientX;
     const clientY = event.clientY || event.touches[0].clientY;
-    
+
     previousMousePosition.x = clientX;
     previousMousePosition.y = clientY;
 }
 function onDragMove(event) {
     if (!isDragging || !modelToFadeIn || isCameraFocused) return;
-    
-// --- NEW: Reset camera focus on DRAG ---
+
+    // --- NEW: Reset camera focus on DRAG ---
     if (isCameraFocused && !scrollHappened) {
         isCameraFocused = false;
         isCameraTransitioning = true;
@@ -758,7 +778,7 @@ let scrollHappened = false;
 
 // The listener just sets the flag to true
 window.addEventListener('wheel', (event) => {
-  scrollHappened = 10;
+    scrollHappened = 10;
 })
 
 function onMouseWheel(event) {
@@ -773,23 +793,23 @@ function onMouseWheel(event) {
 }
 renderer.domElement.addEventListener('wheel', onMouseWheel, false);
 
-function checkIntersections(isClick = false) { 
+function checkIntersections(isClick = false) {
     // Don't raycast if dragging
     if (isDragging) return;
 
     raycaster.setFromCamera(mouse, camera);
-    const intersects = raycaster.intersectObject(modelToFadeIn, true); 
+    const intersects = raycaster.intersectObject(modelToFadeIn, true);
 
-    hoveredInteractive = null; 
+    hoveredInteractive = null;
 
     if (intersects.length > 0) {
         let objectToCheck = intersects[0].object;
         while (objectToCheck) {
             if (objectToCheck.name) {
                 // Check for Knobs or Displays
-                if (objectToCheck.name.includes('Knob') 
-                    || objectToCheck.name === 'Display01' 
-                    || objectToCheck.name === 'Display02' 
+                if (objectToCheck.name.includes('Knob')
+                    || objectToCheck.name === 'Display01'
+                    || objectToCheck.name === 'Display02'
                     || objectToCheck.name.includes('B_')) {
                     hoveredInteractive = objectToCheck; // Found an object
                     console.log('Hovered object name:', objectToCheck.name);
@@ -805,39 +825,39 @@ function checkIntersections(isClick = false) {
     }
 
     if (isCameraFocused && scrollHappened > 0) {
-            
-            // ...then un-focus the camera.
-            isCameraFocused = false;
-            isCameraTransitioning = true;
-            
-            // Also hide GUI and deselect objects, same as onDragStart
-            if (descriptionDisplayElement) descriptionDisplayElement.style.display = 'none';
-            currentDescriptionText = "";
-            selectedObject = null;
-            outlinePass.selectedObjects = [];
 
-            return; // We're done, un-focusing is the only action needed.
-        }
+        // ...then un-focus the camera.
+        isCameraFocused = false;
+        isCameraTransitioning = true;
 
-    if (isClick 
+        // Also hide GUI and deselect objects, same as onDragStart
+        if (descriptionDisplayElement) descriptionDisplayElement.style.display = 'none';
+        currentDescriptionText = "";
+        selectedObject = null;
+        outlinePass.selectedObjects = [];
+
+        return; // We're done, un-focusing is the only action needed.
+    }
+
+    if (isClick
         && hoveredInteractive
         && isCameraFocused === false
-        && (hoveredInteractive.name === 'Display01' 
-        || hoveredInteractive.name === 'Display02')) {
+        && (hoveredInteractive.name === 'Display01'
+            || hoveredInteractive.name === 'Display02')) {
         isCameraFocused = true;
         isCameraTransitioning = true;
         rotationVelocityY = 0;
         targetModelRotationY = 0; // The Y rotation we WANT to end up at
-        
+
         // --- START FIX ---
         // 1. Save the model's current rotation
         const originalModelRotationY = modelToFadeIn.rotation.y;
 
         // 2. Temporarily snap the model to its TARGET rotation
-        modelToFadeIn.rotation.y = targetModelRotationY; 
+        modelToFadeIn.rotation.y = targetModelRotationY;
 
         // 3. FORCE update the model's matrix and all its children
-        modelToFadeIn.updateMatrixWorld(true); 
+        modelToFadeIn.updateMatrixWorld(true);
         // --- END FIX ---
 
         // --- 1. Get the Knob10 object ---
@@ -851,49 +871,49 @@ function checkIntersections(isClick = false) {
 
         // Calculate target camera position slightly in front of the display
         const displayWorldPos = new THREE.Vector3();
-        
+
         // This will  get the knob's position as-if the model was at Y=0
-        targetObject.getWorldPosition(displayWorldPos); 
-        
+        targetObject.getWorldPosition(displayWorldPos);
+
         const displayNormal = new THREE.Vector3(0, 1, 0);
         displayNormal.applyQuaternion(targetObject.getWorldQuaternion(new THREE.Quaternion()));
         const offsetDistance = 15;
         targetCameraPosition.copy(displayWorldPos).addScaledVector(displayNormal, offsetDistance);
-        
+
         // Look directly at the center of the display
-        targetLookAt.copy(displayWorldPos); 
+        targetLookAt.copy(displayWorldPos);
 
         // Set camera "up" vector to match display's up direction
         const displayUp = new THREE.Vector3(0, 0, -1);
         displayUp.applyQuaternion(targetObject.getWorldQuaternion(new THREE.Quaternion()));
         targetCameraUp.copy(displayUp);
-        
+
         // 4. Restore the model's rotation to its original position
         modelToFadeIn.rotation.y = originalModelRotationY;
         return; // Stop processing, we've handled the display click
     }
-    
+
     // --- SOFT BUTTON CLICK LOGIC --
     if (isClick && hoveredInteractive && hoveredInteractive.name.includes('B_')) {
         const buttonName = hoveredInteractive.name;
-        
+
         // 1. Get the current state (e.g., 1 for Red)
         let currentState = softButtonStates.get(buttonName);
         // If undefined (for a button not set at init), default to 1 (Red)
-        if (currentState === undefined) currentState = 1; 
+        if (currentState === undefined) currentState = 1;
 
         // 2. Cycle the state (1 -> 0 -> 1)
         currentState = (currentState + 1) % 2;
         softButtonStates.set(buttonName, currentState);
-        
+
         console.log(`${buttonName} clicked. New state: ${currentState}`);
-        
+
         // 3. Apply the new emission intensity based on the state
         resetButtonLEDs(buttonName); // Reset other buttons in the group first
 
         // --- NEW: Determine LED string and screen key ---
         let ledStateString = "";
-        
+
         switch (currentState) {
             case 0:
                 // State 0: Green bright (5), Red dim (0)
@@ -905,8 +925,8 @@ function checkIntersections(isClick = false) {
                 setButtonLEDs([buttonName], 0, 5);
                 ledStateString = "Red"; // State 1 maps to "Red"
                 break;
-        }        
-        
+        }
+
         // --- NEW: Construct the key and update the displays ---
         const screenKey = `${buttonName}_${ledStateString}`;
         updateDisplays(screenKey);
@@ -922,36 +942,36 @@ function checkIntersections(isClick = false) {
     if (hoveredInteractive && hoveredInteractive !== selectedObject) {
         selectedObject = hoveredInteractive;
         outlinePass.selectedObjects = [selectedObject];
-        
+
         // Now, decide which GUI to show
         if (selectedObject.name.includes('Knob')) {
             // --- It's a Knob ---
             // REMOVED: hideGuiDisplayCanvas(); // Hide display GUI
-            
+
             // Show knob description
             const objectName = selectedObject.name;
             const description = knobDescriptions.get(objectName);
-            
+
             if (description && description !== currentDescriptionText) {
                 if (descriptionDisplayElement) {
-                    descriptionDisplayElement.style.display = 'block'; 
+                    descriptionDisplayElement.style.display = 'block';
                     descriptionDisplayElement.innerHTML = description;
-                    currentDescriptionText = description; 
-                    descriptionDisplayElement.style.transform = 'scale(1.1)'; 
+                    currentDescriptionText = description;
+                    descriptionDisplayElement.style.transform = 'scale(1.1)';
 
                     setTimeout(() => {
                         if (descriptionDisplayElement) {
-                            descriptionDisplayElement.style.transform = 'scale(1)'; 
+                            descriptionDisplayElement.style.transform = 'scale(1)';
                         }
-                    }, 150); 
+                    }, 150);
                 }
             }
         }
-    } else if (!hoveredInteractive && selectedObject) { 
+    } else if (!hoveredInteractive && selectedObject) {
         // Mouse is on no object, but an object is still selected
         selectedObject = null;
         outlinePass.selectedObjects = [];
-        
+
         // Hide all GUIs
         if (descriptionDisplayElement) descriptionDisplayElement.style.display = 'none';
         currentDescriptionText = "";
@@ -963,62 +983,63 @@ function animate() {
     requestAnimationFrame(animate);
 
     // --- PULSE LOGIC ---
-    const elapsedTime = clock.getElapsedTime(); 
-    const pulseFactor = Math.sin(elapsedTime * PULSE_SPEED) * 0.5 + 0.5; 
+    const elapsedTime = clock.getElapsedTime();
+    const pulseFactor = Math.sin(elapsedTime * PULSE_SPEED) * 0.5 + 0.5;
     const newIntensity = PULSE_MIN_INTENSITY + (PULSE_MAX_INTENSITY - PULSE_MIN_INTENSITY) * pulseFactor;
     ambientLight.intensity = newIntensity;
 
     // --- BLINK LOGIC ---
     const isBlinkOn = (Math.floor(elapsedTime * 2) % 2 === 0);
     scrollHappened -= 1
-    if (scrollHappened <= 0){
+    if (scrollHappened <= 0) {
         scrollHappened = 0
     }
 
     // ---  INTRO ZOOM ---
     if (isFadingIn && modelToFadeIn) {
-        
+
         // CURVED ZOOM-IN (Intro anim)
         if (currentRadius > FINAL_RADIUS) {
             const distanceRemaining = currentRadius - FINAL_RADIUS;
             const zoomStep = distanceRemaining * EASE_FACTOR;
             currentRadius -= zoomStep;
-            if (distanceRemaining < 0.01) { 
-                currentRadius = FINAL_RADIUS; 
+            if (distanceRemaining < 0.01) {
+                currentRadius = FINAL_RADIUS;
                 isFadingIn = false; // <-- Set flag to false HERE
                 console.log('Intro sequence complete.');
             }
         } else {
-             // Also handle case where we are already at or past the zoom
-             isFadingIn = false;
+            // Also handle case where we are already at or past the zoom
+            isFadingIn = false;
         }
     }
-    
-// --- Model Rotation LERP & Inertia Logic ---
+
+    // --- Model Rotation LERP & Inertia Logic ---
     if (modelToFadeIn) {
         // If we are dragging, the onDragMove function handles rotation.
         // If not dragging, we need to handle LERP (for focus) or Inertia (for drift).
         if (!isDragging) {
-             // LERP the model's Y-rotation to its target
+            // LERP the model's Y-rotation to its target
             modelToFadeIn.rotation.y = THREE.MathUtils.lerp(
-                modelToFadeIn.rotation.y, 
+                modelToFadeIn.rotation.y,
                 targetModelRotationY,
                 CAMERA_FOCUS_SPEED // Use the same speed as camera
             );
 
             const rotationDifference = Math.abs(modelToFadeIn.rotation.y - targetModelRotationY);
             if (rotationDifference < 0.001) { // 0.001 is a good small threshold
-            modelToFadeIn.rotation.y = targetModelRotationY;}
+                modelToFadeIn.rotation.y = targetModelRotationY;
+            }
 
             // Only apply inertia if NOT focused and NOT transitioning
             // (The transition flag is set to false when it arrives)
             if (!isCameraFocused && !isCameraTransitioning && rotationVelocityY !== 0) {
                 // Apply the drift rotation
                 modelToFadeIn.rotation.y += rotationVelocityY;
-                
+
                 // Apply damping (friction)
                 rotationVelocityY *= INERTIA_DAMPING;
-                
+
                 // Stop if velocity is negligible
                 if (Math.abs(rotationVelocityY) < 0.0001) {
                     rotationVelocityY = 0;
@@ -1036,7 +1057,7 @@ function animate() {
         }
     }
 
-   // --- Camera Position Logic
+    // --- Camera Position Logic
     if (isCameraFocused) {
         // Targets are set by checkIntersections on click
     } else {
@@ -1051,40 +1072,40 @@ function animate() {
         targetCameraUp.set(0, 1, 0); // Reset "up" vector to world default
 
         if (!isDragging && modelToFadeIn) {
-             targetModelRotationY = modelToFadeIn.rotation.y;
+            targetModelRotationY = modelToFadeIn.rotation.y;
         }
     }
-    
+
     // Always lerp to the current target position, lookAt point, and up vector
     camera.position.lerp(targetCameraPosition, CAMERA_FOCUS_SPEED);
     lerpedLookAt.lerp(targetLookAt, CAMERA_FOCUS_SPEED);
     lerpedCameraUp.lerp(targetCameraUp, CAMERA_FOCUS_SPEED); //
-    
+
     // Apply the "up" vector *before* calling lookAt
     camera.up.copy(lerpedCameraUp); // 
     camera.lookAt(lerpedLookAt);
 
     if (!oldTargetCameraUp.equals(oldTargetCameraUp)) {
-            // The value has changed since the last frame!
-            console.warn('targetCameraUp CHANGED!');
-            console.log('Old:', oldTargetCameraUp.x, oldTargetCameraUp.y, oldTargetCameraUp.z);
-            console.log('New:', targetCameraUp.x, targetCameraUp.y, targetCameraUp.z);
-            
-            // This is the breakpoint you wanted:
-            debugger; 
-            
-            // Update the "old" value to the "new" value for the next frame
-            oldTargetCameraUp.copy(targetCameraUp);
-        }
+        // The value has changed since the last frame!
+        console.warn('targetCameraUp CHANGED!');
+        console.log('Old:', oldTargetCameraUp.x, oldTargetCameraUp.y, oldTargetCameraUp.z);
+        console.log('New:', targetCameraUp.x, targetCameraUp.y, targetCameraUp.z);
 
-// --- Call Raycasting Logic ---
+        // This is the breakpoint you wanted:
+        debugger;
+
+        // Update the "old" value to the "new" value for the next frame
+        oldTargetCameraUp.copy(targetCameraUp);
+    }
+
+    // --- Call Raycasting Logic ---
     if (modelToFadeIn) {
-        checkIntersections(false); 
+        checkIntersections(false);
 
         // --- REVISED DEBUG BLOCK (FOR CAMERA) ---
         if (debugDisplayElement) {
-            
-            const hoveredName = hoveredInteractive ? hoveredInteractive.name : "null"; 
+
+            const hoveredName = hoveredInteractive ? hoveredInteractive.name : "null";
 
             // --- Camera Data ---
             const camX = camera.position.x.toFixed(2);
@@ -1103,7 +1124,7 @@ function animate() {
             const lookX = lerpedLookAt.x.toFixed(2);
             const lookY = lerpedLookAt.y.toFixed(2);
             const lookZ = lerpedLookAt.z.toFixed(2);
-            
+
             // Update textContent with camera info
             debugDisplayElement.textContent = `--- STATES ---
             isCameraFocused: ${isCameraFocused}
@@ -1119,7 +1140,7 @@ function animate() {
         // --- END REVISED BLOCK ---
     }
 
-// Update Grain Time
+    // Update Grain Time
     if (grainPass) {
         grainPass.uniforms['time'].value = elapsedTime;
     }
@@ -1151,15 +1172,15 @@ async function startExperience() {
     } finally {
         // Hide the start button overlay
         startOverlay.style.display = 'none';
-        
+
         // Get the new fade overlay and trigger the fade-out
         const fadeOverlay = document.getElementById('fade-overlay');
         if (fadeOverlay) {
             fadeOverlay.style.opacity = '0';
         }
-        
+
         // Start the zoom-in animation
-        isFadingIn = true; 
+        isFadingIn = true;
     }
 }
 
@@ -1171,6 +1192,6 @@ window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     camera.updateProjectionMatrix();
     renderer.setSize(window.innerWidth, window.innerHeight);
-    composer.setSize(window.innerWidth, window.innerHeight); 
+    composer.setSize(window.innerWidth, window.innerHeight);
     outlinePass.resolution.set(window.innerWidth, window.innerHeight);
 });
