@@ -14,9 +14,9 @@ let outlinePass;
 let hoveredInteractive = null;
 
 // Button Groups
-const b_group1 = ['B_Soft01', 'B_Soft02', 'B_Soft03', 'B_Soft04'];
-const b_group2 = ['B_Soft05', 'B_Soft06', 'B_Soft07', 'B_Soft08'];
-const b_group3 = ['B_TimeMod', 'B_Gate', 'B_Accent', 'B_Glide', 'B_Octave', 'B_NoteSynth'];
+const B_Group_1 = ['B_Soft01', 'B_Soft02', 'B_Soft03', 'B_Soft04'];
+const B_Group_2 = ['B_Soft05', 'B_Soft06', 'B_Soft07', 'B_Soft08'];
+const B_Group_3 = ['B_TimeMod', 'B_Gate', 'B_Accent', 'B_Glide', 'B_Octave', 'B_NoteSynth'];
 
 //  Drag and Rotation Variablse
 let isDragging = false;
@@ -38,7 +38,7 @@ let softButtonStates = new Map(); // Key: Object Name (e.g., 'soft1'), Value: St
 
 // LED Functions
 function resetButtonLEDs(targetButton) {
-    const grouplist = [b_group1, b_group2, b_group3];
+    const grouplist = [B_Group_1, B_Group_2, B_Group_3];
 
     // Find targetButton in groups
     for (const group of grouplist) {
