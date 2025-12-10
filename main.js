@@ -587,8 +587,8 @@ loader.load(
         // Set all buttons in the groups to initial Green state
         Start_Group.forEach(buttonName => {
             resetButtonLEDs(buttonName);
-            setButtonLEDs([buttonName], 5, 0); // Green=5, Red=0 for Green state
-            softButtonStates.set(buttonName, 1); // Logical state 0 for Green       
+            setButtonLEDs([buttonName], 0, 5); // Green= 0, Red = 5 for Red state
+            softButtonStates.set(buttonName, 1); // Logical state 0 for Red       
         });
         updateDisplays("B_TimeMod_Green");
     },
