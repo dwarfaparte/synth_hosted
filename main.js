@@ -45,8 +45,10 @@ function resetButtonLEDs(targetButton) {
         if (group.includes(targetButton)) {
             // Reset all buttons in this group  
             for (const buttonName of group) {
-                setButtonLEDs([buttonName], 0, 0);
-                //softButtonStates.set(buttonName, 0); // Reset state to 0
+                if (buttonName !== targetButton) {
+                    setButtonLEDs([buttonName], 0, 0);
+                    softButtonStates.set(buttonName, 0); // Reset state to 0
+                }
             }
         }
     }
@@ -588,7 +590,7 @@ loader.load(
         Start_Group.forEach(buttonName => {
             resetButtonLEDs(buttonName);
             setButtonLEDs([buttonName], 0, 5); // Green= 0, Red = 5 for Red state
-            softButtonStates.set(buttonName, 0); // Logical state 0 for Red       
+            softButtonStates.set(buttonName, 1); // Logical state 0 for Red       
         });
         updateDisplays("B_TimeMod_Green");
     },
@@ -886,10 +888,13 @@ function checkIntersections(isClick = false) {
         // 1. Get the current state (e.g., 1 for Red)
         let currentState = softButtonStates.get(buttonName);
         // If undefined (for a button not set at init), default to 1 (Red)
-        if (currentState === undefined) currentState = 1;
+        if (currentState === undefined) currentState = 0;
 
-        // 2. Cycle the state (1 -> 0 -> 1)
-        currentState = (currentState + 1) % 2;
+        // 2. Cycle the state 
+        currentState = (currentState + 1);
+        if (currentState > 2) {
+            currentState = 1;
+        }
         softButtonStates.set(buttonName, currentState);
 
         console.log(`${buttonName} clicked. New state: ${currentState}`);
@@ -902,11 +907,16 @@ function checkIntersections(isClick = false) {
 
         switch (currentState) {
             case 0:
+                // State 0: Red dim (0), Green dim (0)
+                setButtonLEDs([buttonName], 0, 0);
+                ledStateString = "Off"; // State 1 maps to "Off"
+                break;
+            case 1:
                 // State 1: Red bright (5), Green dim (0)
                 setButtonLEDs([buttonName], 0, 5);
                 ledStateString = "Red"; // State 1 maps to "Red"
                 break;
-            case 1:
+            case 2:
                 // State 0: Green bright (5), Red dim (0)
                 setButtonLEDs([buttonName], 5, 0);
                 ledStateString = "Green"; // State 0 maps to "Green"
