@@ -588,7 +588,7 @@ loader.load(
         Start_Group.forEach(buttonName => {
             resetButtonLEDs(buttonName);
             setButtonLEDs([buttonName], 0, 5); // Green= 0, Red = 5 for Red state
-            softButtonStates.set(buttonName, 1); // Logical state 0 for Red       
+            softButtonStates.set(buttonName, 0); // Logical state 0 for Red       
         });
         updateDisplays("B_TimeMod_Green");
     },
@@ -902,15 +902,16 @@ function checkIntersections(isClick = false) {
 
         switch (currentState) {
             case 0:
-                // State 0: Green bright (5), Red dim (0)
-                setButtonLEDs([buttonName], 5, 0);
-                ledStateString = "Green"; // State 0 maps to "Green"
-                break;
-            case 1:
                 // State 1: Red bright (5), Green dim (0)
                 setButtonLEDs([buttonName], 0, 5);
                 ledStateString = "Red"; // State 1 maps to "Red"
                 break;
+            case 1:
+                // State 0: Green bright (5), Red dim (0)
+                setButtonLEDs([buttonName], 5, 0);
+                ledStateString = "Green"; // State 0 maps to "Green"
+                break;
+
         }
 
         // --- NEW: Construct the key and update the displays ---
